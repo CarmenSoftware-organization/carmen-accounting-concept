@@ -23,7 +23,7 @@ The Carmen Accounting System is a full-spectrum, multi-module accounting platfor
 ```
 Carmen ERP Platform
 ├── React SPA (Vite, React 19)          ← Frontend
-├── NestJS Backend Gateway              ← HTTP API, Auth, Rate-limit (HTTP→TCP Bridge)
+├── carmen-turborepo-backend-v2         ← Main API Application (NestJS 11 Gateway, Auth, HTTP→TCP Bridge)
 ├── micro-business (existing)           ← Procurement & Inventory
 ├── micro-accounting (NEW)              ← This system
 │   ├── General Ledger (GL)
@@ -109,8 +109,8 @@ carmen-accounting-concept/
 
 | Repository | Description |
 |-----------|-------------|
+| `carmen-turborepo-backend-v2` | **Main API Application** (NestJS 11 Gateway & Microservices Monorepo) |
 | `Accounting-docs` | New Concept FRDs & UI Mockups (AP, GL, Master Data) |
-| `carmen-turborepo-backend-v2` | Backend Gateway (NestJS 11) |
 | `carmen-inventory-frontend-react` | Main ERP Frontend (React 19) |
 | `carmen-platform` | Platform Admin (Cluster/BU/User management) |
 | `carmen` | micro-business (Procurement & Inventory domain) |

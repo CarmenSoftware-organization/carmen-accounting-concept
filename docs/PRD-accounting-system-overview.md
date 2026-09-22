@@ -43,7 +43,7 @@ The Accounting System comprises **10 functional modules**:
 
 ### 2.1 Integration into Carmen ERP Platform
 
-The Accounting System is implemented as a **new accounting microservice** (`micro-accounting`) within the existing Carmen ERP architecture:
+The Accounting System is exposed through the **Main API Application** (`carmen-turborepo-backend-v2` / `backend-gateway`) and implemented as a **new accounting microservice** (`micro-accounting`) within the Carmen ERP architecture:
 
 ```
                           ┌──────────────────────────────────────────┐
@@ -55,8 +55,8 @@ The Accounting System is implemented as a **new accounting microservice** (`micr
                                                │ HTTP / REST (JWT Auth, CORS)
                                                ▼
 ┌───────────────────────────────────────────────────────────────────────┐
-│                    NestJS Backend Gateway (:4001)                     │
-│                       (TCP MessagePattern RPC)                        │
+│     Main API Application — carmen-turborepo-backend-v2 (:4001)        │
+│          (NestJS Backend Gateway / TCP MessagePattern RPC)            │
 └────┬──────────┬───────────┬────────────────────────┬──────────────────┘
      │          │           │                        │
      ▼          ▼           ▼                        ▼
@@ -79,6 +79,7 @@ The Accounting System is implemented as a **new accounting microservice** (`micr
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
+| Main API Application | `carmen-turborepo-backend-v2` | NestJS 11 Gateway (`backend-gateway`), HTTP routing, auth & rate limiting |
 | Runtime | NestJS 11, Bun | Consistent with existing microservices |
 | ORM | Prisma | Schema-per-tenant isolation |
 | Database | PostgreSQL | Dual-schema: platform (cross-tenant) + tenant (per-BU) |
