@@ -20,7 +20,7 @@ The Carmen Accounting System is a full-spectrum, multi-module accounting platfor
 
 ## Architecture
 
-```
+```text
 Carmen ERP Platform
 ├── React SPA (Vite, React 19)          ← Frontend
 ├── carmen-turborepo-backend-v2         ← Main API Application (NestJS 11 Gateway, Auth, HTTP→TCP Bridge)
