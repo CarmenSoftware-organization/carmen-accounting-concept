@@ -26,8 +26,8 @@ The Accounting System comprises **10 functional modules**:
 
 | # | Module | Status | Document Reference |
 |---|--------|--------|-------------------|
-| 1 | General Ledger (GL) | Existing FRD | [GL JV Fast Entry FRD V2.14](../Accounting-docs/GL/Journal%20Voucher/carmen_cloud_erp_functional_requirement_document_frd.md) |
-| 2 | Accounts Payable (AP) | Existing FRD | [AP Module FRD v4.5.06](../Accounting-docs/AP/Invoice/carmen_cloud_erp_ap_module_functional_requirement_document_frd.md) |
+| 1 | General Ledger (GL) | New Concept FRD | [GL JV Fast Entry FRD V2.14](../Accounting-docs/GL/Journal%20Voucher/carmen_cloud_erp_functional_requirement_document_frd.md) |
+| 2 | Accounts Payable (AP) | New Concept FRD | [AP Module FRD v4.5.06](../Accounting-docs/AP/Invoice/carmen_cloud_erp_ap_module_functional_requirement_document_frd.md) |
 | 3 | Accounts Receivable (AR) | **New** | [PRD-module-ar.md](./PRD-module-ar.md) |
 | 4 | Cash & Bank Management | **New** | [PRD-module-cash-bank.md](./PRD-module-cash-bank.md) |
 | 5 | Fixed Assets (FA) | **New** | [PRD-module-fa.md](./PRD-module-fa.md) |
@@ -47,36 +47,32 @@ The Accounting System is implemented as a **new accounting microservice** (`micr
 
 ```
                           ┌──────────────────────────────────────────┐
-                          │           Client Layer                   │
+                          │               Client Layer               │
                           │  React SPA  │  Platform Admin  │  KB UI  │
                           │  + Accounting UI Module                  │
-                          └──────┬───────┴────────┬─────────┴────┬────┘
-                                 │                │              │
-                                 ▼                ▼              ▼
-                          ┌──────────────────────────────────────────┐
-                          │        APISIX Edge Gateway (:4000)       │
-                          └──────┬──────────────────┬───────────┬────┘
-                                 │                  │           │
-                                 ▼                  ▼           ▼
-┌─────────────────────────────────────────┐    ┌───────────────────────────┐
-│     NestJS Backend Gateway (:4001)      │    │  Other Microservices      │
-│         (TCP MessagePattern RPC)        │    │                           │
-└────┬──────┬──────┬──────┬──────┬────────┘    └───────────────────────────┘
-     │      │      │      │      │
-     ▼      ▼      ▼      ▼      ▼
-┌────────┐┌─────┐┌──────┐┌──────┐┌──────────────────────────────────────┐
-│micro-  ││micro││micro-││micro-││        micro-accounting (NEW)        │
-│business││-file││-notif││-clust││                                      │
-│(domain)││     ││      ││-er   ││  GL │ AP │ AR │ CB │ FA │ BC │ TAX  │
-└────────┘└─────┘└──────┘└──────┘│  PE │ IC │ RPT                      │
-                                 └──────────────────────────────────────┘
-                                          │
-                                          ▼
-                                 ┌──────────────────┐
-                                 │   PostgreSQL      │
-                                 │   Tenant Schema   │
-                                 │   (acct_* tables) │
-                                 └──────────────────┘
+                          └────────────────────┬─────────────────────┘
+                                               │
+                                               │ HTTP / REST (JWT Auth, CORS)
+                                               ▼
+┌───────────────────────────────────────────────────────────────────────┐
+│                    NestJS Backend Gateway (:4001)                     │
+│                       (TCP MessagePattern RPC)                        │
+└────┬──────────┬───────────┬────────────────────────┬──────────────────┘
+     │          │           │                        │
+     ▼          ▼           ▼                        ▼
+┌────────┐ ┌────────┐ ┌──────────┐ ┌────────────────────────────────────┐
+│ micro- │ │ micro- │ │ micro-   │ │       micro-accounting (NEW)       │
+│business│ │ file   │ │ notif /  │ │                                    │
+│(domain)│ │        │ │ cluster  │ │  GL │ AP │ AR │ CB │ FA │ BC │ TAX │
+└────────┘ └────────┘ └──────────┘ │  PE │ IC │ RPT                     │
+                                   └─────────────────┬──────────────────┘
+                                                     │
+                                                     ▼
+                                           ┌──────────────────┐
+                                           │   PostgreSQL     │
+                                           │  Tenant Schema   │
+                                           │ (acct_* tables)  │
+                                           └──────────────────┘
 ```
 
 ### 2.2 Technology Stack
@@ -457,23 +453,32 @@ The following master data entities are **prerequisites** for the Accounting Syst
 
 ---
 
-## Appendix A: Existing Documentation Index
+## Appendix A: Documentation Index
 
-| Document | Location | Version |
-|----------|----------|---------|
+### New Concept Documentation (`Accounting-docs/`)
+
+| Document | Location | Version / Note |
+|----------|----------|----------------|
 | System Relations PRD | `../PRD-SYSTEM-RELATIONS.md` | 2026-08-06 |
-| AP Invoice FRD | `../Accounting-docs/AP/Invoice/` | v4.5.06 |
-| AP Payment Approval Mockup | `../Accounting-docs/AP/Payment Approval/` | v2.16 |
-| AP Dashboard Mockup | `../Accounting-docs/AP/Dashboard/` | v4.4.4 |
-| GL JV Fast Entry FRD | `../Accounting-docs/GL/Journal Voucher/` | V2.14 |
-| GL Module Sitemap Mockup | `../Accounting-docs/GL/` | - |
-| COA Master FRD | `../Accounting-docs/Master Data/COA/` | v1.2 |
-| Cost Center FRD | `../Accounting-docs/Master Data/Cost Center (Department)/` | v1.0 |
-| Dimension FRD | `../Accounting-docs/Master Data/Dimension/` | v1.0 |
-| WHT Form FRD | `../Accounting-docs/Master Data/WHT Form/` | v1.0 |
-| WHT Service Type FRD | `../Accounting-docs/Master Data/WHT Service Type/` | v1.0 |
-| Payment Type FRD | `../Accounting-docs/Master Data/Payment Type/` | v1.0 |
-| JV Prefix FRD | `../Accounting-docs/Master Data/JV Prefix/` | v1.1 |
-| Account Code Grouping FRD | `../Accounting-docs/Master Data/Account Code Grouping/` | v1.2 |
-| Asset Category FRD | `../Accounting-docs/Master Data/Asset Category/` | v1.0 |
-| Title FRD | `../Accounting-docs/Master Data/Title/` | v1.0 |
+| AP Invoice FRD | `../Accounting-docs/AP/Invoice/` | v4.5.06 (New Concept FRD) |
+| AP Payment Approval Mockup | `../Accounting-docs/AP/Payment Approval/` | v2.16 (New Concept UI) |
+| AP Dashboard Mockup | `../Accounting-docs/AP/Dashboard/` | v4.4.4 (New Concept UI) |
+| GL JV Fast Entry FRD | `../Accounting-docs/GL/Journal Voucher/` | V2.14 (New Concept FRD) |
+| GL Module Sitemap Mockup | `../Accounting-docs/GL/` | New Concept UI |
+| COA Master FRD | `../Accounting-docs/Master Data/COA/` | v1.2 (New Concept FRD) |
+| Cost Center FRD | `../Accounting-docs/Master Data/Cost Center (Department)/` | v1.0 (New Concept FRD) |
+| Dimension FRD | `../Accounting-docs/Master Data/Dimension/` | v1.0 (New Concept FRD) |
+| WHT Form FRD | `../Accounting-docs/Master Data/WHT Form/` | v1.0 (New Concept FRD) |
+| WHT Service Type FRD | `../Accounting-docs/Master Data/WHT Service Type/` | v1.0 (New Concept FRD) |
+| Payment Type FRD | `../Accounting-docs/Master Data/Payment Type/` | v1.0 (New Concept FRD) |
+| JV Prefix FRD | `../Accounting-docs/Master Data/JV Prefix/` | v1.1 (New Concept FRD) |
+| Account Code Grouping FRD | `../Accounting-docs/Master Data/Account Code Grouping/` | v1.2 (New Concept FRD) |
+| Asset Category FRD | `../Accounting-docs/Master Data/Asset Category/` | v1.0 (New Concept FRD) |
+| Title FRD | `../Accounting-docs/Master Data/Title/` | v1.0 (New Concept FRD) |
+
+### Old Concept & System Reference
+
+| Reference | Location | Note |
+|-----------|----------|------|
+| `carmen-4-doc` | `../carmen-4-doc/` | Old concept documentation (Carmen 4 architecture, db schemas, workflows) |
+| Legacy Carmen ERP | `../developer-carmensoftware/` | Old system codebase reference (Carmen4, carmen.web, Carmen.Report) |

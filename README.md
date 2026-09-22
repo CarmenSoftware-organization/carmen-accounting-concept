@@ -23,8 +23,7 @@ The Carmen Accounting System is a full-spectrum, multi-module accounting platfor
 ```
 Carmen ERP Platform
 ├── React SPA (Vite, React 19)          ← Frontend
-├── APISIX Edge Gateway                 ← Auth, Rate-limit, CORS
-├── NestJS Backend Gateway              ← HTTP→TCP Bridge
+├── NestJS Backend Gateway              ← HTTP API, Auth, Rate-limit (HTTP→TCP Bridge)
 ├── micro-business (existing)           ← Procurement & Inventory
 ├── micro-accounting (NEW)              ← This system
 │   ├── General Ledger (GL)
@@ -44,8 +43,8 @@ Carmen ERP Platform
 
 | # | Module | Code | Status | PRD |
 |---|--------|------|--------|-----|
-| 1 | General Ledger | GL | Existing FRD | [GL JV Fast Entry FRD](../Accounting-docs/GL/Journal%20Voucher/carmen_cloud_erp_functional_requirement_document_frd.md) |
-| 2 | Accounts Payable | AP | Existing FRD | [AP Module FRD v4.5.06](../Accounting-docs/AP/Invoice/carmen_cloud_erp_ap_module_functional_requirement_document_frd.md) |
+| 1 | General Ledger | GL | New Concept FRD | [GL JV Fast Entry FRD](../Accounting-docs/GL/Journal%20Voucher/carmen_cloud_erp_functional_requirement_document_frd.md) |
+| 2 | Accounts Payable | AP | New Concept FRD | [AP Module FRD v4.5.06](../Accounting-docs/AP/Invoice/carmen_cloud_erp_ap_module_functional_requirement_document_frd.md) |
 | 3 | Accounts Receivable | AR | **New** | [PRD-module-ar.md](docs/PRD-module-ar.md) |
 | 4 | Cash & Bank Management | CB | **New** | [PRD-module-cash-bank.md](docs/PRD-module-cash-bank.md) |
 | 5 | Fixed Assets | FA | **New** | [PRD-module-fa.md](docs/PRD-module-fa.md) |
@@ -85,7 +84,7 @@ Carmen ERP Platform
 
 ## Documentation Structure
 
-```
+```text
 carmen-accounting-concept/
 ├── README.md                              ← You are here
 ├── docs/
@@ -98,20 +97,25 @@ carmen-accounting-concept/
 │   ├── PRD-module-period-end.md           ← Period End / Closing
 │   ├── PRD-module-intercompany.md         ← Inter-company
 │   └── PRD-module-reporting.md            ← Financial Reporting
-└── Accounting-docs/                       ← Existing FRDs & Mockups (sibling repo)
-    ├── AP/                                ← AP Invoice FRD + Mockups
-    ├── GL/                                ← GL JV FRD + Mockups
-    └── Master Data/                       ← COA, Cost Center, WHT, etc.
+├── Accounting-docs/                       ← New Concept FRDs & Mockups (AP, GL, Master Data)
+│   ├── AP/                                ← AP Invoice FRD + Mockups
+│   ├── GL/                                ← GL JV FRD + Mockups
+│   └── Master Data/                       ← COA, Cost Center, WHT, etc.
+├── carmen-4-doc/                          ← Old Concept Documentation (Carmen 4 architecture, db, workflows)
+└── developer-carmensoftware/              ← Old / Legacy System codebase (Carmen4, carmen.web, Carmen.Report)
 ```
 
 ## Related Repositories
 
 | Repository | Description |
 |-----------|-------------|
+| `Accounting-docs` | New Concept FRDs & UI Mockups (AP, GL, Master Data) |
 | `carmen-turborepo-backend-v2` | Backend Gateway (NestJS 11) |
 | `carmen-inventory-frontend-react` | Main ERP Frontend (React 19) |
 | `carmen-platform` | Platform Admin (Cluster/BU/User management) |
 | `carmen` | micro-business (Procurement & Inventory domain) |
+| `carmen-4-doc` | Old Concept Documentation (Carmen 4 architecture, database, workflows) |
+| `developer-carmensoftware` | Old System / Legacy ERP Codebase (Carmen4, carmen.web, Carmen.Report) |
 
 ## License
 
