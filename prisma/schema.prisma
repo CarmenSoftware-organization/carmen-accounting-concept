@@ -1,0 +1,1651 @@
+// ==============================================================================
+// Carmen Cloud ERP — Full-Scope Accounting System Prisma Schema
+// USALI 12th Edition & Thai Tax (TFRS / Revenue Dept) Compliant
+// ==============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==============================================================================
+// 1. ENUMS
+// ==============================================================================
+
+enum enum_account_type {
+  asset
+  liability
+  equity
+  revenue
+  expense
+}
+
+enum enum_account_normal_balance {
+  debit
+  credit
+}
+
+enum enum_dimension_requirement {
+  mandatory
+  optional
+  prohibited
+}
+
+enum enum_dimension_code {
+  market
+  sales
+  project
+  event
+  location
+  channel
+  guest_type
+  custom
+}
+
+enum enum_fiscal_period_status {
+  open
+  soft_closed
+  closed
+  locked
+}
+
+enum enum_journal_voucher_type {
+  general
+  adjustment
+  recurring
+  auto_reversal
+  closing
+  subledger_ap
+  subledger_ar
+  subledger_fa
+  subledger_cb
+  intercompany
+}
+
+enum enum_journal_voucher_status {
+  draft
+  submitted
+  approved
+  posted
+  voided
+  reversed
+}
+
+enum enum_ap_invoice_type {
+  standard
+  prepayment
+  credit_note
+  debit_note
+}
+
+enum enum_ap_invoice_status {
+  draft
+  pending_matching
+  submitted
+  approved
+  posted
+  partially_paid
+  paid
+  voided
+}
+
+enum enum_ap_payment_status {
+  draft
+  submitted
+  approved
+  posted
+  reconciled
+  voided
+}
+
+enum enum_payment_method {
+  bank_transfer
+  cheque
+  cash
+  credit_card
+  direct_debit
+  promtpay
+}
+
+enum enum_ar_invoice_type {
+  standard
+  folio_billing
+  city_ledger
+  banquet_event
+  deposit
+  credit_note
+  debit_note
+}
+
+enum enum_ar_invoice_status {
+  draft
+  submitted
+  approved
+  posted
+  partially_paid
+  paid
+  bad_debt
+  voided
+}
+
+enum enum_ar_receipt_status {
+  draft
+  submitted
+  approved
+  posted
+  reconciled
+  voided
+}
+
+enum enum_depreciation_method {
+  straight_line
+  declining_balance
+  sum_of_years
+  no_depreciation
+}
+
+enum enum_asset_status {
+  in_service
+  under_maintenance
+  fully_depreciated
+  disposed
+  written_off
+}
+
+enum enum_asset_disposal_type {
+  sale
+  scrapping
+  write_off
+  donation
+  trade_in
+}
+
+enum enum_tax_invoice_type {
+  input_vat // ภาษีซื้อ (AP)
+  output_vat // ภาษีขาย (AR)
+}
+
+enum enum_tax_status {
+  undue_suspense // ภาษีรอยื่น / ภาษียังไม่ถึงกำหนด
+  claimed // ยื่นภาษีแล้ว (ภ.พ.30)
+  deferred // ขอเลื่อนยื่น (ภายใน 6 เดือน)
+  voided // ยกเลิก
+}
+
+enum enum_wht_form_type {
+  pnd_1
+  pnd_2
+  pnd_3 // บุคคลธรรมดา
+  pnd_53 // นิติบุคคล
+  pnd_54 // จ่ายไปต่างประเทศ
+}
+
+enum enum_wht_condition {
+  deducted_at_source // 1 = หัก ณ ที่จ่าย
+  paid_for_every_time // 2 = ออกให้ตลอดไป
+  paid_one_time // 3 = ออกให้ครั้งเดียว
+}
+
+enum enum_bank_account_type {
+  current
+  savings
+  fixed_deposit
+  petty_cash
+}
+
+enum enum_reconciliation_status {
+  unmatched
+  matched
+  auto_matched
+  manually_cleared
+  disputed
+}
+
+enum enum_budget_status {
+  draft
+  submitted
+  approved
+  active
+  revised
+  archived
+}
+
+enum enum_intercompany_status {
+  draft
+  pending_approval
+  confirmed
+  settled
+  cancelled
+}
+
+// ==============================================================================
+// 2. CORE MASTER DATA: CHART OF ACCOUNTS & DIMENSIONS
+// ==============================================================================
+
+model tb_chart_of_accounts {
+  doc_version       Int                         @default(0) @db.Integer
+  id                String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_code      String                      @db.VarChar(50)
+  account_name_en   String                      @db.VarChar(255)
+  account_name_th   String?                     @db.VarChar(255)
+  description       String?                     @db.VarChar
+  account_type      enum_account_type
+  normal_balance    enum_account_normal_balance
+  parent_account_id String?                     @db.Uuid
+  level             Int                         @default(1) @db.Integer
+  is_header         Boolean                     @default(false)
+  is_postable       Boolean                     @default(true)
+  is_active         Boolean                     @default(true)
+
+  // USALI 12th Edition Categorization
+  usali_schedule_code   String? @db.VarChar(50) // e.g. "OPER-RMS", "OPER-FB", "UNDIST-AG"
+  usali_department_code String? @db.VarChar(50) // e.g. "10", "20", "30"
+  report_group_code     String? @db.VarChar(50) // Balance Sheet / P&L grouping
+
+  info          Json?     @default("{}") @db.JsonB
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  // Self-referencing tree
+  parent_account tb_chart_of_accounts?  @relation("AccountHierarchy", fields: [parent_account_id], references: [id])
+  child_accounts tb_chart_of_accounts[] @relation("AccountHierarchy")
+
+  // Dimension validation rules
+  dimension_rules tb_account_dimension_rule[]
+
+  // References from General Ledger
+  journal_voucher_lines tb_journal_voucher_line[]
+  gl_entries            tb_gl_entry[]
+
+  // References from Subledgers
+  ap_invoice_lines      tb_ap_invoice_line[]
+  ar_invoice_lines      tb_ar_invoice_line[]
+  bank_accounts         tb_bank_account[]
+  petty_cash_funds      tb_petty_cash_fund[]
+  fixed_assets_cost     tb_fixed_asset[]          @relation("AssetCostAccount")
+  fixed_assets_acc_dep  tb_fixed_asset[]          @relation("AssetAccDepAccount")
+  fixed_assets_dep_exp  tb_fixed_asset[]          @relation("AssetDepExpAccount")
+  asset_categories_cost tb_asset_category[]       @relation("CategoryCostAccount")
+  asset_categories_acc  tb_asset_category[]       @relation("CategoryAccDepAccount")
+  asset_categories_exp  tb_asset_category[]       @relation("CategoryDepExpAccount")
+  budget_lines          tb_budget_line[]
+  intercompany_due_to   tb_intercompany_partner[] @relation("PartnerDueToAccount")
+  intercompany_due_from tb_intercompany_partner[] @relation("PartnerDueFromAccount")
+
+  @@unique([account_code, deleted_at], map: "coa_account_code_u")
+  @@index([account_code], map: "coa_account_code_idx")
+  @@index([parent_account_id], map: "coa_parent_id_idx")
+  @@index([account_type], map: "coa_type_idx")
+  @@index([usali_schedule_code], map: "coa_usali_idx")
+}
+
+model tb_dimension_type {
+  doc_version Int                 @default(0) @db.Integer
+  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        enum_dimension_code
+  custom_name String?             @db.VarChar(100)
+  description String?             @db.VarChar
+  is_active   Boolean             @default(true)
+  sort_order  Int                 @default(0)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  dimension_values        tb_dimension_value[]
+  account_dimension_rules tb_account_dimension_rule[]
+
+  @@unique([code, custom_name, deleted_at], map: "dim_type_code_custom_u")
+}
+
+model tb_dimension_value {
+  doc_version       Int     @default(0) @db.Integer
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dimension_type_id String  @db.Uuid
+  code              String  @db.VarChar(50)
+  name_en           String  @db.VarChar(255)
+  name_th           String? @db.VarChar(255)
+  description       String? @db.VarChar
+  is_active         Boolean @default(true)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  dimension_type tb_dimension_type @relation(fields: [dimension_type_id], references: [id])
+
+  jv_line_dimensions  tb_journal_voucher_line_dimension[]
+  gl_entry_dimensions tb_gl_entry_dimension[]
+  ap_line_dimensions  tb_ap_invoice_line_dimension[]
+  ar_line_dimensions  tb_ar_invoice_line_dimension[]
+
+  @@unique([dimension_type_id, code, deleted_at], map: "dim_value_code_u")
+  @@index([dimension_type_id], map: "dim_value_type_id_idx")
+}
+
+model tb_account_dimension_rule {
+  doc_version       Int                        @default(0) @db.Integer
+  id                String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id        String                     @db.Uuid
+  dimension_type_id String                     @db.Uuid
+  requirement       enum_dimension_requirement @default(optional)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  account        tb_chart_of_accounts @relation(fields: [account_id], references: [id])
+  dimension_type tb_dimension_type    @relation(fields: [dimension_type_id], references: [id])
+
+  @@unique([account_id, dimension_type_id, deleted_at], map: "acct_dim_rule_u")
+}
+
+// ==============================================================================
+// 3. FISCAL YEARS & PERIODS
+// ==============================================================================
+
+model tb_fiscal_year {
+  doc_version Int      @default(0) @db.Integer
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  year_number Int      @db.Integer // e.g. 2026
+  year_name   String   @db.VarChar(50) // e.g. "FY 2026"
+  start_date  DateTime @db.Date
+  end_date    DateTime @db.Date
+  is_closed   Boolean  @default(false)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  fiscal_periods tb_fiscal_period[]
+  budget_plans   tb_budget_plan[]
+
+  @@unique([year_number, deleted_at], map: "fiscal_year_number_u")
+}
+
+model tb_fiscal_period {
+  doc_version    Int      @default(0) @db.Integer
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fiscal_year_id String   @db.Uuid
+  period_number  Int      @db.Integer // 1 to 12 (or 13 for year-end adj)
+  period_name    String   @db.VarChar(50) // e.g. "Jan 2026"
+  start_date     DateTime @db.Date
+  end_date       DateTime @db.Date
+
+  // Granular per-module period controls
+  gl_status enum_fiscal_period_status @default(open)
+  ap_status enum_fiscal_period_status @default(open)
+  ar_status enum_fiscal_period_status @default(open)
+  fa_status enum_fiscal_period_status @default(open)
+  cb_status enum_fiscal_period_status @default(open)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  fiscal_year tb_fiscal_year @relation(fields: [fiscal_year_id], references: [id])
+
+  journal_vouchers        tb_journal_voucher[]
+  gl_entries              tb_gl_entry[]
+  period_close_histories  tb_period_close_history[]
+  asset_depreciation_runs tb_asset_depreciation_run[]
+  budget_lines            tb_budget_line[]
+
+  @@unique([fiscal_year_id, period_number, deleted_at], map: "fiscal_period_num_u")
+  @@index([start_date, end_date], map: "fiscal_period_dates_idx")
+}
+
+model tb_period_close_history {
+  doc_version      Int                       @default(0) @db.Integer
+  id               String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fiscal_period_id String                    @db.Uuid
+  module           String                    @db.VarChar(20) // "GL", "AP", "AR", "FA", "CB"
+  previous_status  enum_fiscal_period_status
+  new_status       enum_fiscal_period_status
+  reason           String?                   @db.VarChar
+  performed_by_id  String                    @db.Uuid
+  performed_at     DateTime                  @default(now()) @db.Timestamptz(6)
+
+  fiscal_period tb_fiscal_period @relation(fields: [fiscal_period_id], references: [id])
+
+  @@index([fiscal_period_id, module], map: "period_close_hist_idx")
+}
+
+// ==============================================================================
+// 4. GENERAL LEDGER (GL): TWO-TIER VOUCHER & LEDGER
+// ==============================================================================
+
+model tb_journal_voucher {
+  doc_version      Int                         @default(0) @db.Integer
+  id               String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  voucher_no       String                      @db.VarChar(50)
+  voucher_date     DateTime                    @db.Date
+  posting_date     DateTime                    @db.Date
+  fiscal_period_id String                      @db.Uuid
+  voucher_type     enum_journal_voucher_type   @default(general)
+  status           enum_journal_voucher_status @default(draft)
+  description      String?                     @db.VarChar
+  reference_no     String?                     @db.VarChar(100)
+
+  // Subledger lineage tracking
+  source_module String? @db.VarChar(50) // "AP", "AR", "FA", "CB", "INTERCOMPANY"
+  source_type   String? @db.VarChar(50) // "INVOICE", "PAYMENT", "DEPRECIATION", etc.
+  source_id     String? @db.Uuid // Originating document ID
+
+  // Auto-reversal instructions
+  is_reversal         Boolean   @default(false)
+  reversal_voucher_id String?   @db.Uuid
+  auto_reverse_date   DateTime? @db.Date
+
+  // Currency & Totals (Base / Functional Currency)
+  base_currency_id String  @db.Uuid
+  total_debit      Decimal @default(0) @db.Decimal(18, 2)
+  total_credit     Decimal @default(0) @db.Decimal(18, 2)
+
+  // Workflow / Approval
+  submitted_at    DateTime? @db.Timestamptz(6)
+  submitted_by_id String?   @db.Uuid
+  approved_at     DateTime? @db.Timestamptz(6)
+  approved_by_id  String?   @db.Uuid
+  posted_at       DateTime? @db.Timestamptz(6)
+  posted_by_id    String?   @db.Uuid
+  voided_at       DateTime? @db.Timestamptz(6)
+  voided_by_id    String?   @db.Uuid
+
+  info          Json?     @default("{}") @db.JsonB
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  fiscal_period    tb_fiscal_period     @relation(fields: [fiscal_period_id], references: [id])
+  reversal_voucher tb_journal_voucher?  @relation("ReversalPair", fields: [reversal_voucher_id], references: [id])
+  reversed_by      tb_journal_voucher[] @relation("ReversalPair")
+
+  lines      tb_journal_voucher_line[]
+  gl_entries tb_gl_entry[]
+
+  // Subledger relationships linking back to this voucher
+  ap_invoices      tb_ap_invoice[]
+  ap_payments      tb_ap_payment[]
+  ar_invoices      tb_ar_invoice[]
+  ar_receipts      tb_ar_receipt[]
+  asset_dep_runs   tb_asset_depreciation_run[]
+  asset_disposals  tb_asset_disposal[]
+  tax_invoices     tb_tax_invoice[]
+  wht_certificates tb_wht_certificate[]
+  ic_origin_txs    tb_intercompany_transaction[] @relation("OriginVoucher")
+  ic_target_txs    tb_intercompany_transaction[] @relation("TargetVoucher")
+
+  @@unique([voucher_no, deleted_at], map: "jv_voucher_no_u")
+  @@index([posting_date], map: "jv_posting_date_idx")
+  @@index([fiscal_period_id], map: "jv_period_idx")
+  @@index([status], map: "jv_status_idx")
+  @@index([source_module, source_id], map: "jv_source_idx")
+}
+
+model tb_journal_voucher_line {
+  doc_version        Int     @default(0) @db.Integer
+  id                 String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  journal_voucher_id String  @db.Uuid
+  line_number        Int     @db.Integer
+  account_id         String  @db.Uuid
+  department_id      String? @db.Uuid // Cost Center (tb_department)
+  description        String? @db.VarChar
+
+  // Currency & Rate Snapshot
+  currency_id   String  @db.Uuid
+  exchange_rate Decimal @default(1.000000) @db.Decimal(18, 6)
+
+  // Foreign / Transaction Currency Amounts
+  foreign_debit  Decimal @default(0) @db.Decimal(18, 2)
+  foreign_credit Decimal @default(0) @db.Decimal(18, 2)
+
+  // Functional / Base Currency Amounts
+  base_debit  Decimal @default(0) @db.Decimal(18, 2)
+  base_credit Decimal @default(0) @db.Decimal(18, 2)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  journal_voucher tb_journal_voucher   @relation(fields: [journal_voucher_id], references: [id], onDelete: Cascade)
+  account         tb_chart_of_accounts @relation(fields: [account_id], references: [id])
+
+  line_dimensions tb_journal_voucher_line_dimension[]
+
+  @@index([journal_voucher_id], map: "jv_line_jv_id_idx")
+  @@index([account_id], map: "jv_line_account_idx")
+  @@index([department_id], map: "jv_line_dept_idx")
+}
+
+model tb_journal_voucher_line_dimension {
+  id                      String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  journal_voucher_line_id String @db.Uuid
+  dimension_value_id      String @db.Uuid
+
+  journal_voucher_line tb_journal_voucher_line @relation(fields: [journal_voucher_line_id], references: [id], onDelete: Cascade)
+  dimension_value      tb_dimension_value      @relation(fields: [dimension_value_id], references: [id])
+
+  @@unique([journal_voucher_line_id, dimension_value_id], map: "jv_line_dim_u")
+  @@index([dimension_value_id], map: "jv_line_dim_val_idx")
+}
+
+model tb_gl_entry {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entry_number       BigInt   @default(autoincrement())
+  journal_voucher_id String   @db.Uuid
+  fiscal_period_id   String   @db.Uuid
+  posting_date       DateTime @db.Date
+  account_id         String   @db.Uuid
+  department_id      String?  @db.Uuid // Cost Center (tb_department)
+  description        String?  @db.VarChar
+
+  // Currency & Rate Snapshot
+  currency_id   String  @db.Uuid
+  exchange_rate Decimal @default(1.000000) @db.Decimal(18, 6)
+
+  // Transaction Currency
+  foreign_debit  Decimal @default(0) @db.Decimal(18, 2)
+  foreign_credit Decimal @default(0) @db.Decimal(18, 2)
+
+  // Base / Functional Currency
+  base_debit  Decimal @default(0) @db.Decimal(18, 2)
+  base_credit Decimal @default(0) @db.Decimal(18, 2)
+
+  posted_at    DateTime @default(now()) @db.Timestamptz(6)
+  posted_by_id String   @db.Uuid
+
+  journal_voucher tb_journal_voucher   @relation(fields: [journal_voucher_id], references: [id])
+  fiscal_period   tb_fiscal_period     @relation(fields: [fiscal_period_id], references: [id])
+  account         tb_chart_of_accounts @relation(fields: [account_id], references: [id])
+
+  dimensions tb_gl_entry_dimension[]
+
+  @@index([posting_date], map: "gl_posting_date_idx")
+  @@index([account_id, posting_date], map: "gl_account_date_idx")
+  @@index([fiscal_period_id], map: "gl_period_idx")
+  @@index([department_id], map: "gl_dept_idx")
+  @@index([journal_voucher_id], map: "gl_jv_idx")
+}
+
+model tb_gl_entry_dimension {
+  id                 String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gl_entry_id        String @db.Uuid
+  dimension_value_id String @db.Uuid
+
+  gl_entry        tb_gl_entry        @relation(fields: [gl_entry_id], references: [id], onDelete: Cascade)
+  dimension_value tb_dimension_value @relation(fields: [dimension_value_id], references: [id])
+
+  @@unique([gl_entry_id, dimension_value_id], map: "gl_entry_dim_u")
+  @@index([dimension_value_id], map: "gl_entry_dim_val_idx")
+}
+
+model tb_fx_revaluation_run {
+  doc_version           Int      @default(0) @db.Integer
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fiscal_period_id      String   @db.Uuid
+  revaluation_date      DateTime @db.Date
+  currency_id           String   @db.Uuid
+  closing_rate          Decimal  @db.Decimal(18, 6)
+  total_unrealized_gain Decimal  @default(0) @db.Decimal(18, 2)
+  total_unrealized_loss Decimal  @default(0) @db.Decimal(18, 2)
+  journal_voucher_id    String?  @db.Uuid
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+
+  @@index([fiscal_period_id], map: "fx_reval_period_idx")
+}
+
+// ==============================================================================
+// 5. ACCOUNTS PAYABLE (AP)
+// ==============================================================================
+
+model tb_ap_invoice {
+  doc_version       Int                    @default(0) @db.Integer
+  id                String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  voucher_no        String                 @db.VarChar(50) // Internal AP voucher no
+  vendor_invoice_no String                 @db.VarChar(100) // Supplier's invoice no
+  invoice_type      enum_ap_invoice_type   @default(standard)
+  status            enum_ap_invoice_status @default(draft)
+  vendor_id         String                 @db.Uuid // tb_vendor in tenant DB
+  invoice_date      DateTime               @db.Date
+  posting_date      DateTime               @db.Date
+  due_date          DateTime               @db.Date
+  credit_term_days  Int                    @default(30) @db.Integer
+  description       String?                @db.VarChar
+
+  // Currency
+  currency_id   String  @db.Uuid
+  exchange_rate Decimal @default(1.000000) @db.Decimal(18, 6)
+
+  // Totals (Foreign Currency)
+  foreign_subtotal    Decimal @default(0) @db.Decimal(18, 2)
+  foreign_discount    Decimal @default(0) @db.Decimal(18, 2)
+  foreign_tax_amount  Decimal @default(0) @db.Decimal(18, 2)
+  foreign_grand_total Decimal @default(0) @db.Decimal(18, 2)
+
+  // Totals (Base / Functional Currency)
+  base_subtotal    Decimal @default(0) @db.Decimal(18, 2)
+  base_discount    Decimal @default(0) @db.Decimal(18, 2)
+  base_tax_amount  Decimal @default(0) @db.Decimal(18, 2)
+  base_grand_total Decimal @default(0) @db.Decimal(18, 2)
+
+  // Settlement Balance
+  outstanding_balance Decimal @default(0) @db.Decimal(18, 2)
+
+  // Linked GL Voucher
+  journal_voucher_id String? @db.Uuid
+
+  info          Json?     @default("{}") @db.JsonB
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  journal_voucher tb_journal_voucher? @relation(fields: [journal_voucher_id], references: [id])
+
+  lines            tb_ap_invoice_line[]
+  allocations      tb_ap_payment_allocation[]
+  tax_invoices     tb_tax_invoice[]
+  wht_certificates tb_wht_certificate[]
+
+  @@unique([voucher_no, deleted_at], map: "ap_inv_voucher_no_u")
+  @@index([vendor_id], map: "ap_inv_vendor_idx")
+  @@index([status], map: "ap_inv_status_idx")
+  @@index([due_date], map: "ap_inv_due_date_idx")
+  @@index([posting_date], map: "ap_inv_posting_date_idx")
+}
+
+model tb_ap_invoice_line {
+  doc_version   Int     @default(0) @db.Integer
+  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ap_invoice_id String  @db.Uuid
+  line_number   Int     @db.Integer
+  account_id    String  @db.Uuid // Expense or Asset account
+  department_id String? @db.Uuid // Cost Center (tb_department)
+  item_id       String? @db.Uuid // tb_product (optional inventory item)
+  description   String? @db.VarChar
+  quantity      Decimal @default(1.00) @db.Decimal(18, 4)
+  unit_price    Decimal @default(0) @db.Decimal(18, 4)
+
+  // Amounts
+  foreign_amount Decimal @default(0) @db.Decimal(18, 2)
+  base_amount    Decimal @default(0) @db.Decimal(18, 2)
+
+  // Tax Profile
+  tax_profile_id String? @db.Uuid // tb_tax_profile
+  tax_rate       Decimal @default(0) @db.Decimal(5, 2) // e.g. 7.00%
+  tax_amount     Decimal @default(0) @db.Decimal(18, 2)
+
+  // WHT Profile
+  wht_rate   Decimal? @db.Decimal(5, 2) // e.g. 3.00%
+  wht_amount Decimal? @db.Decimal(18, 2)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  ap_invoice tb_ap_invoice        @relation(fields: [ap_invoice_id], references: [id], onDelete: Cascade)
+  account    tb_chart_of_accounts @relation(fields: [account_id], references: [id])
+
+  line_dimensions tb_ap_invoice_line_dimension[]
+  matchings       tb_ap_invoice_matching[]
+
+  @@index([ap_invoice_id], map: "ap_line_inv_id_idx")
+  @@index([account_id], map: "ap_line_account_idx")
+  @@index([department_id], map: "ap_line_dept_idx")
+}
+
+model tb_ap_invoice_line_dimension {
+  id                 String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ap_invoice_line_id String @db.Uuid
+  dimension_value_id String @db.Uuid
+
+  ap_invoice_line tb_ap_invoice_line @relation(fields: [ap_invoice_line_id], references: [id], onDelete: Cascade)
+  dimension_value tb_dimension_value @relation(fields: [dimension_value_id], references: [id])
+
+  @@unique([ap_invoice_line_id, dimension_value_id], map: "ap_line_dim_u")
+  @@index([dimension_value_id], map: "ap_line_dim_val_idx")
+}
+
+// 3-Way Matching between AP Invoice Line, PO Detail, and GRN Detail
+model tb_ap_invoice_matching {
+  doc_version        Int     @default(0) @db.Integer
+  id                 String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ap_invoice_line_id String  @db.Uuid
+  purchase_order_id  String? @db.Uuid // tb_purchase_order
+  po_detail_id       String? @db.Uuid // tb_purchase_order_detail
+  grn_id             String? @db.Uuid // tb_good_received_note
+  grn_detail_id      String? @db.Uuid // tb_good_received_note_detail
+  matched_quantity   Decimal @db.Decimal(18, 4)
+  matched_amount     Decimal @db.Decimal(18, 2)
+  variance_amount    Decimal @default(0) @db.Decimal(18, 2)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+
+  ap_invoice_line tb_ap_invoice_line @relation(fields: [ap_invoice_line_id], references: [id], onDelete: Cascade)
+
+  @@index([ap_invoice_line_id], map: "ap_match_line_idx")
+  @@index([purchase_order_id], map: "ap_match_po_idx")
+  @@index([grn_id], map: "ap_match_grn_idx")
+}
+
+model tb_ap_payment {
+  doc_version     Int                    @default(0) @db.Integer
+  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payment_no      String                 @db.VarChar(50)
+  payment_date    DateTime               @db.Date
+  posting_date    DateTime               @db.Date
+  vendor_id       String                 @db.Uuid // tb_vendor
+  bank_account_id String?                @db.Uuid
+  payment_method  enum_payment_method    @default(bank_transfer)
+  status          enum_ap_payment_status @default(draft)
+  cheque_no       String?                @db.VarChar(50)
+  cheque_date     DateTime?              @db.Date
+  reference_no    String?                @db.VarChar(100)
+  description     String?                @db.VarChar
+
+  // Currency & Rates
+  currency_id   String  @db.Uuid
+  exchange_rate Decimal @default(1.000000) @db.Decimal(18, 6)
+
+  // Totals
+  foreign_amount     Decimal @default(0) @db.Decimal(18, 2)
+  base_amount        Decimal @default(0) @db.Decimal(18, 2)
+  total_wht_deducted Decimal @default(0) @db.Decimal(18, 2)
+
+  journal_voucher_id String? @db.Uuid
+
+  info          Json?     @default("{}") @db.JsonB
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  journal_voucher tb_journal_voucher? @relation(fields: [journal_voucher_id], references: [id])
+  bank_account    tb_bank_account?    @relation(fields: [bank_account_id], references: [id])
+
+  allocations          tb_ap_payment_allocation[]
+  wht_certificates     tb_wht_certificate[]
+  reconciliation_items tb_bank_reconciliation_item[]
+
+  @@unique([payment_no, deleted_at], map: "ap_pay_no_u")
+  @@index([vendor_id], map: "ap_pay_vendor_idx")
+  @@index([payment_date], map: "ap_pay_date_idx")
+  @@index([status], map: "ap_pay_status_idx")
+}
+
+model tb_ap_payment_allocation {
+  doc_version       Int     @default(0) @db.Integer
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ap_payment_id     String  @db.Uuid
+  ap_invoice_id     String  @db.Uuid
+  allocated_foreign Decimal @db.Decimal(18, 2)
+  allocated_base    Decimal @db.Decimal(18, 2)
+  discount_taken    Decimal @default(0) @db.Decimal(18, 2)
+  realized_fx_gain  Decimal @default(0) @db.Decimal(18, 2)
+  realized_fx_loss  Decimal @default(0) @db.Decimal(18, 2)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+
+  ap_payment tb_ap_payment @relation(fields: [ap_payment_id], references: [id], onDelete: Cascade)
+  ap_invoice tb_ap_invoice @relation(fields: [ap_invoice_id], references: [id])
+
+  @@unique([ap_payment_id, ap_invoice_id], map: "ap_alloc_pay_inv_u")
+  @@index([ap_invoice_id], map: "ap_alloc_inv_idx")
+}
+
+// ==============================================================================
+// 6. ACCOUNTS RECEIVABLE (AR)
+// ==============================================================================
+
+model tb_customer_group {
+  doc_version Int     @default(0) @db.Integer
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String  @db.VarChar(50) // e.g. "CORP", "FIT", "OTA", "GOVT"
+  name        String  @db.VarChar(255)
+  description String? @db.VarChar
+  is_active   Boolean @default(true)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  customers tb_customer[]
+
+  @@unique([code, deleted_at], map: "cust_grp_code_u")
+}
+
+model tb_customer {
+  doc_version       Int     @default(0) @db.Integer
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_code     String  @db.VarChar(50)
+  customer_name_en  String  @db.VarChar(255)
+  customer_name_th  String? @db.VarChar(255)
+  customer_group_id String? @db.Uuid
+  tax_id            String? @db.VarChar(50)
+  branch_no         String? @default("00000") @db.VarChar(10)
+  credit_limit      Decimal @default(0) @db.Decimal(18, 2)
+  credit_term_days  Int     @default(30) @db.Integer
+  address_billing   String? @db.VarChar
+  contact_person    String? @db.VarChar(255)
+  phone             String? @db.VarChar(50)
+  email             String? @db.VarChar(100)
+  is_active         Boolean @default(true)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  customer_group tb_customer_group? @relation(fields: [customer_group_id], references: [id])
+
+  ar_invoices  tb_ar_invoice[]
+  ar_receipts  tb_ar_receipt[]
+  tax_invoices tb_tax_invoice[]
+
+  @@unique([customer_code, deleted_at], map: "cust_code_u")
+  @@index([customer_group_id], map: "cust_grp_idx")
+  @@index([tax_id], map: "cust_tax_id_idx")
+}
+
+model tb_ar_invoice {
+  doc_version         Int                    @default(0) @db.Integer
+  id                  String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_no          String                 @db.VarChar(50)
+  invoice_type        enum_ar_invoice_type   @default(standard)
+  status              enum_ar_invoice_status @default(draft)
+  customer_id         String                 @db.Uuid
+  invoice_date        DateTime               @db.Date
+  posting_date        DateTime               @db.Date
+  due_date            DateTime               @db.Date
+  credit_term_days    Int                    @default(30) @db.Integer
+  folio_no            String?                @db.VarChar(50) // PMS Folio No
+  city_ledger_account String?                @db.VarChar(50)
+  description         String?                @db.VarChar
+
+  // Currency & Rates
+  currency_id   String  @db.Uuid
+  exchange_rate Decimal @default(1.000000) @db.Decimal(18, 6)
+
+  // Foreign Currency Totals
+  foreign_subtotal    Decimal @default(0) @db.Decimal(18, 2)
+  foreign_discount    Decimal @default(0) @db.Decimal(18, 2)
+  foreign_tax_amount  Decimal @default(0) @db.Decimal(18, 2)
+  foreign_grand_total Decimal @default(0) @db.Decimal(18, 2)
+
+  // Base Currency Totals
+  base_subtotal    Decimal @default(0) @db.Decimal(18, 2)
+  base_discount    Decimal @default(0) @db.Decimal(18, 2)
+  base_tax_amount  Decimal @default(0) @db.Decimal(18, 2)
+  base_grand_total Decimal @default(0) @db.Decimal(18, 2)
+
+  // Outstanding
+  outstanding_balance Decimal @default(0) @db.Decimal(18, 2)
+
+  journal_voucher_id String? @db.Uuid
+
+  info          Json?     @default("{}") @db.JsonB
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  customer        tb_customer         @relation(fields: [customer_id], references: [id])
+  journal_voucher tb_journal_voucher? @relation(fields: [journal_voucher_id], references: [id])
+
+  lines        tb_ar_invoice_line[]
+  allocations  tb_ar_receipt_allocation[]
+  tax_invoices tb_tax_invoice[]
+
+  @@unique([invoice_no, deleted_at], map: "ar_inv_no_u")
+  @@index([customer_id], map: "ar_inv_cust_idx")
+  @@index([due_date], map: "ar_inv_due_idx")
+  @@index([posting_date], map: "ar_inv_posting_idx")
+  @@index([status], map: "ar_inv_status_idx")
+}
+
+model tb_ar_invoice_line {
+  doc_version   Int     @default(0) @db.Integer
+  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_invoice_id String  @db.Uuid
+  line_number   Int     @db.Integer
+  account_id    String  @db.Uuid // Revenue account
+  department_id String? @db.Uuid // Revenue center / Department
+  description   String? @db.VarChar
+  quantity      Decimal @default(1.00) @db.Decimal(18, 4)
+  unit_price    Decimal @default(0) @db.Decimal(18, 4)
+
+  foreign_amount Decimal @default(0) @db.Decimal(18, 2)
+  base_amount    Decimal @default(0) @db.Decimal(18, 2)
+
+  tax_profile_id String? @db.Uuid
+  tax_rate       Decimal @default(0) @db.Decimal(5, 2)
+  tax_amount     Decimal @default(0) @db.Decimal(18, 2)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  ar_invoice tb_ar_invoice        @relation(fields: [ar_invoice_id], references: [id], onDelete: Cascade)
+  account    tb_chart_of_accounts @relation(fields: [account_id], references: [id])
+
+  line_dimensions tb_ar_invoice_line_dimension[]
+
+  @@index([ar_invoice_id], map: "ar_line_inv_idx")
+  @@index([account_id], map: "ar_line_acct_idx")
+  @@index([department_id], map: "ar_line_dept_idx")
+}
+
+model tb_ar_invoice_line_dimension {
+  id                 String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_invoice_line_id String @db.Uuid
+  dimension_value_id String @db.Uuid
+
+  ar_invoice_line tb_ar_invoice_line @relation(fields: [ar_invoice_line_id], references: [id], onDelete: Cascade)
+  dimension_value tb_dimension_value @relation(fields: [dimension_value_id], references: [id])
+
+  @@unique([ar_invoice_line_id, dimension_value_id], map: "ar_line_dim_u")
+  @@index([dimension_value_id], map: "ar_line_dim_val_idx")
+}
+
+model tb_ar_receipt {
+  doc_version     Int                    @default(0) @db.Integer
+  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  receipt_no      String                 @db.VarChar(50)
+  receipt_date    DateTime               @db.Date
+  posting_date    DateTime               @db.Date
+  customer_id     String                 @db.Uuid
+  bank_account_id String?                @db.Uuid
+  payment_method  enum_payment_method    @default(bank_transfer)
+  status          enum_ar_receipt_status @default(draft)
+  cheque_no       String?                @db.VarChar(50)
+  reference_no    String?                @db.VarChar(100)
+  description     String?                @db.VarChar
+
+  // Currency & Rate
+  currency_id   String  @db.Uuid
+  exchange_rate Decimal @default(1.000000) @db.Decimal(18, 6)
+
+  // Totals
+  foreign_amount       Decimal @default(0) @db.Decimal(18, 2)
+  base_amount          Decimal @default(0) @db.Decimal(18, 2)
+  wht_deducted_by_cust Decimal @default(0) @db.Decimal(18, 2) // หัก ณ ที่จ่าย ที่ลูกค้าหักไว้
+
+  journal_voucher_id String? @db.Uuid
+
+  info          Json?     @default("{}") @db.JsonB
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  customer        tb_customer         @relation(fields: [customer_id], references: [id])
+  journal_voucher tb_journal_voucher? @relation(fields: [journal_voucher_id], references: [id])
+  bank_account    tb_bank_account?    @relation(fields: [bank_account_id], references: [id])
+
+  allocations          tb_ar_receipt_allocation[]
+  reconciliation_items tb_bank_reconciliation_item[]
+
+  @@unique([receipt_no, deleted_at], map: "ar_rec_no_u")
+  @@index([customer_id], map: "ar_rec_cust_idx")
+  @@index([receipt_date], map: "ar_rec_date_idx")
+  @@index([status], map: "ar_rec_status_idx")
+}
+
+model tb_ar_receipt_allocation {
+  doc_version       Int     @default(0) @db.Integer
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_receipt_id     String  @db.Uuid
+  ar_invoice_id     String  @db.Uuid
+  allocated_foreign Decimal @db.Decimal(18, 2)
+  allocated_base    Decimal @db.Decimal(18, 2)
+  discount_given    Decimal @default(0) @db.Decimal(18, 2)
+  realized_fx_gain  Decimal @default(0) @db.Decimal(18, 2)
+  realized_fx_loss  Decimal @default(0) @db.Decimal(18, 2)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+
+  ar_receipt tb_ar_receipt @relation(fields: [ar_receipt_id], references: [id], onDelete: Cascade)
+  ar_invoice tb_ar_invoice @relation(fields: [ar_invoice_id], references: [id])
+
+  @@unique([ar_receipt_id, ar_invoice_id], map: "ar_alloc_rec_inv_u")
+  @@index([ar_invoice_id], map: "ar_alloc_inv_idx")
+}
+
+// ==============================================================================
+// 7. CASH & BANK MANAGEMENT (CB)
+// ==============================================================================
+
+model tb_bank {
+  doc_version Int     @default(0) @db.Integer
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bank_code   String  @db.VarChar(20) // e.g. "BBL", "KBANK", "SCB"
+  name_en     String  @db.VarChar(255)
+  name_th     String? @db.VarChar(255)
+  swift_code  String? @db.VarChar(20)
+  is_active   Boolean @default(true)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  bank_accounts tb_bank_account[]
+
+  @@unique([bank_code, deleted_at], map: "bank_code_u")
+}
+
+model tb_bank_account {
+  doc_version     Int                    @default(0) @db.Integer
+  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bank_id         String                 @db.Uuid
+  account_number  String                 @db.VarChar(50)
+  account_name    String                 @db.VarChar(255)
+  account_type    enum_bank_account_type @default(current)
+  branch_name     String?                @db.VarChar(100)
+  currency_id     String                 @db.Uuid
+  gl_account_id   String                 @db.Uuid // Cash at Bank COA account
+  opening_balance Decimal                @default(0) @db.Decimal(18, 2)
+  current_balance Decimal                @default(0) @db.Decimal(18, 2)
+  is_active       Boolean                @default(true)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  bank       tb_bank              @relation(fields: [bank_id], references: [id])
+  gl_account tb_chart_of_accounts @relation(fields: [gl_account_id], references: [id])
+
+  ap_payments     tb_ap_payment[]
+  ar_receipts     tb_ar_receipt[]
+  bank_statements tb_bank_statement[]
+  reconciliations tb_bank_reconciliation[]
+
+  @@unique([account_number, deleted_at], map: "bank_acct_num_u")
+  @@index([bank_id], map: "bank_acct_bank_idx")
+  @@index([gl_account_id], map: "bank_acct_gl_idx")
+}
+
+model tb_petty_cash_fund {
+  doc_version         Int      @default(0) @db.Integer
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fund_name           String   @db.VarChar(100) // e.g. "Front Office Cash Float", "F&B Petty Cash"
+  custodian_user_id   String   @db.Uuid // User responsible
+  gl_account_id       String   @db.Uuid // Petty Cash COA
+  currency_id         String   @db.Uuid
+  fund_limit          Decimal  @db.Decimal(18, 2)
+  current_balance     Decimal  @db.Decimal(18, 2)
+  replenish_threshold Decimal? @db.Decimal(18, 2)
+  is_active           Boolean  @default(true)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  gl_account tb_chart_of_accounts    @relation(fields: [gl_account_id], references: [id])
+  expenses   tb_petty_cash_expense[]
+
+  @@unique([fund_name, deleted_at], map: "petty_cash_name_u")
+  @@index([gl_account_id], map: "petty_cash_gl_idx")
+  @@index([custodian_user_id], map: "petty_cash_user_idx")
+}
+
+model tb_petty_cash_expense {
+  doc_version        Int      @default(0) @db.Integer
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  petty_cash_fund_id String   @db.Uuid
+  voucher_no         String   @db.VarChar(50)
+  expense_date       DateTime @db.Date
+  payee_name         String   @db.VarChar(255)
+  amount             Decimal  @db.Decimal(18, 2)
+  description        String?  @db.VarChar
+  receipt_attachment String?  @db.VarChar // MinIO path
+  is_replenished     Boolean  @default(false)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  petty_cash_fund tb_petty_cash_fund @relation(fields: [petty_cash_fund_id], references: [id])
+
+  @@unique([voucher_no, deleted_at], map: "petty_exp_no_u")
+  @@index([petty_cash_fund_id], map: "petty_exp_fund_idx")
+}
+
+model tb_bank_statement {
+  doc_version        Int      @default(0) @db.Integer
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bank_account_id    String   @db.Uuid
+  statement_date     DateTime @db.Date
+  period_start_date  DateTime @db.Date
+  period_end_date    DateTime @db.Date
+  opening_balance    Decimal  @db.Decimal(18, 2)
+  closing_balance    Decimal  @db.Decimal(18, 2)
+  total_deposits     Decimal  @default(0) @db.Decimal(18, 2)
+  total_withdrawals  Decimal  @default(0) @db.Decimal(18, 2)
+  imported_file_name String?  @db.VarChar(255)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  bank_account tb_bank_account @relation(fields: [bank_account_id], references: [id])
+
+  lines           tb_bank_statement_line[]
+  reconciliations tb_bank_reconciliation[]
+
+  @@index([bank_account_id, statement_date], map: "stmt_acct_date_idx")
+}
+
+model tb_bank_statement_line {
+  doc_version       Int       @default(0) @db.Integer
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bank_statement_id String    @db.Uuid
+  transaction_date  DateTime  @db.Date
+  value_date        DateTime? @db.Date
+  reference_no      String?   @db.VarChar(100)
+  description       String?   @db.VarChar
+  debit_amount      Decimal   @default(0) @db.Decimal(18, 2) // Withdrawal
+  credit_amount     Decimal   @default(0) @db.Decimal(18, 2) // Deposit
+  running_balance   Decimal?  @db.Decimal(18, 2)
+  is_reconciled     Boolean   @default(false)
+
+  bank_statement       tb_bank_statement             @relation(fields: [bank_statement_id], references: [id], onDelete: Cascade)
+  reconciliation_items tb_bank_reconciliation_item[]
+
+  @@index([bank_statement_id], map: "stmt_line_stmt_idx")
+  @@index([transaction_date], map: "stmt_line_date_idx")
+}
+
+model tb_bank_reconciliation {
+  doc_version         Int      @default(0) @db.Integer
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bank_account_id     String   @db.Uuid
+  bank_statement_id   String?  @db.Uuid
+  reconciliation_date DateTime @db.Date
+  statement_balance   Decimal  @db.Decimal(18, 2)
+  gl_book_balance     Decimal  @db.Decimal(18, 2)
+  unpresented_cheques Decimal  @default(0) @db.Decimal(18, 2)
+  deposits_in_transit Decimal  @default(0) @db.Decimal(18, 2)
+  variance_difference Decimal  @default(0) @db.Decimal(18, 2)
+  is_balanced         Boolean  @default(false)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+
+  bank_account   tb_bank_account    @relation(fields: [bank_account_id], references: [id])
+  bank_statement tb_bank_statement? @relation(fields: [bank_statement_id], references: [id])
+
+  items tb_bank_reconciliation_item[]
+
+  @@index([bank_account_id, reconciliation_date], map: "bank_rec_acct_date_idx")
+}
+
+model tb_bank_reconciliation_item {
+  id                     String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bank_reconciliation_id String                     @db.Uuid
+  bank_statement_line_id String?                    @db.Uuid
+  ap_payment_id          String?                    @db.Uuid
+  ar_receipt_id          String?                    @db.Uuid
+  status                 enum_reconciliation_status @default(unmatched)
+  matched_amount         Decimal                    @db.Decimal(18, 2)
+  cleared_date           DateTime?                  @db.Date
+  notes                  String?                    @db.VarChar
+
+  bank_reconciliation tb_bank_reconciliation  @relation(fields: [bank_reconciliation_id], references: [id], onDelete: Cascade)
+  bank_statement_line tb_bank_statement_line? @relation(fields: [bank_statement_line_id], references: [id])
+  ap_payment          tb_ap_payment?          @relation(fields: [ap_payment_id], references: [id])
+  ar_receipt          tb_ar_receipt?          @relation(fields: [ar_receipt_id], references: [id])
+
+  @@index([bank_reconciliation_id], map: "rec_item_rec_idx")
+  @@index([bank_statement_line_id], map: "rec_item_stmt_line_idx")
+}
+
+// ==============================================================================
+// 8. FIXED ASSETS (FA)
+// ==============================================================================
+
+model tb_asset_category {
+  doc_version         Int                      @default(0) @db.Integer
+  id                  String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category_code       String                   @db.VarChar(50) // e.g. "BLD", "FF&E", "VEH", "IT"
+  category_name       String                   @db.VarChar(255)
+  depreciation_method enum_depreciation_method @default(straight_line)
+  useful_life_years   Decimal                  @db.Decimal(5, 2) // e.g. 5.00 years
+  depreciation_rate   Decimal?                 @db.Decimal(5, 2) // % per annum
+
+  // GL Account Mappings
+  asset_cost_account_id String @db.Uuid // COA Asset Cost
+  acc_dep_account_id    String @db.Uuid // COA Accumulated Depreciation (contra-asset)
+  dep_exp_account_id    String @db.Uuid // COA Depreciation Expense
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  asset_cost_account tb_chart_of_accounts @relation("CategoryCostAccount", fields: [asset_cost_account_id], references: [id])
+  acc_dep_account    tb_chart_of_accounts @relation("CategoryAccDepAccount", fields: [acc_dep_account_id], references: [id])
+  dep_exp_account    tb_chart_of_accounts @relation("CategoryDepExpAccount", fields: [dep_exp_account_id], references: [id])
+
+  fixed_assets tb_fixed_asset[]
+
+  @@unique([category_code, deleted_at], map: "asset_cat_code_u")
+}
+
+model tb_fixed_asset {
+  doc_version   Int               @default(0) @db.Integer
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  asset_code    String            @db.VarChar(50) // Barcode / Tag ID
+  asset_name    String            @db.VarChar(255)
+  category_id   String            @db.Uuid
+  department_id String?           @db.Uuid // Custodian cost center (tb_department)
+  location_id   String?           @db.Uuid // Physical location (tb_location)
+  serial_number String?           @db.VarChar(100)
+  barcode       String?           @db.VarChar(100)
+  status        enum_asset_status @default(in_service)
+
+  // Acquisition Details
+  acquisition_date    DateTime                 @db.Date
+  in_service_date     DateTime                 @db.Date
+  currency_id         String                   @db.Uuid
+  acquisition_cost    Decimal                  @db.Decimal(18, 2) // Historical cost
+  salvage_value       Decimal                  @default(0) @db.Decimal(18, 2)
+  useful_life_years   Decimal                  @db.Decimal(5, 2)
+  depreciation_method enum_depreciation_method @default(straight_line)
+
+  // Running Balances
+  accumulated_depreciation Decimal @default(0) @db.Decimal(18, 2)
+  net_book_value           Decimal @db.Decimal(18, 2)
+
+  // GL Mapping overrides
+  gl_cost_account_id    String @db.Uuid
+  gl_acc_dep_account_id String @db.Uuid
+  gl_dep_exp_account_id String @db.Uuid
+
+  // Procurement origin link
+  ap_invoice_id     String? @db.Uuid
+  purchase_order_id String? @db.Uuid
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  category           tb_asset_category    @relation(fields: [category_id], references: [id])
+  gl_cost_account    tb_chart_of_accounts @relation("AssetCostAccount", fields: [gl_cost_account_id], references: [id])
+  gl_acc_dep_account tb_chart_of_accounts @relation("AssetAccDepAccount", fields: [gl_acc_dep_account_id], references: [id])
+  gl_dep_exp_account tb_chart_of_accounts @relation("AssetDepExpAccount", fields: [gl_dep_exp_account_id], references: [id])
+
+  depreciation_entries tb_asset_depreciation_entry[]
+  transfers            tb_asset_transfer[]
+  disposals            tb_asset_disposal[]
+
+  @@unique([asset_code, deleted_at], map: "fa_asset_code_u")
+  @@index([category_id], map: "fa_cat_idx")
+  @@index([department_id], map: "fa_dept_idx")
+  @@index([status], map: "fa_status_idx")
+}
+
+model tb_asset_depreciation_run {
+  doc_version        Int      @default(0) @db.Integer
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  run_no             String   @db.VarChar(50)
+  fiscal_period_id   String   @db.Uuid
+  run_date           DateTime @db.Date
+  total_depreciation Decimal  @db.Decimal(18, 2)
+  journal_voucher_id String?  @db.Uuid // Linked auto-generated JV
+  is_posted          Boolean  @default(false)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+
+  fiscal_period   tb_fiscal_period    @relation(fields: [fiscal_period_id], references: [id])
+  journal_voucher tb_journal_voucher? @relation(fields: [journal_voucher_id], references: [id])
+
+  entries tb_asset_depreciation_entry[]
+
+  @@unique([run_no], map: "asset_dep_run_no_u")
+  @@index([fiscal_period_id], map: "asset_dep_period_idx")
+}
+
+model tb_asset_depreciation_entry {
+  id                    String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  depreciation_run_id   String  @db.Uuid
+  fixed_asset_id        String  @db.Uuid
+  depreciation_amount   Decimal @db.Decimal(18, 2)
+  prior_accumulated_dep Decimal @db.Decimal(18, 2)
+  new_accumulated_dep   Decimal @db.Decimal(18, 2)
+  new_net_book_value    Decimal @db.Decimal(18, 2)
+
+  depreciation_run tb_asset_depreciation_run @relation(fields: [depreciation_run_id], references: [id], onDelete: Cascade)
+  fixed_asset      tb_fixed_asset            @relation(fields: [fixed_asset_id], references: [id])
+
+  @@index([depreciation_run_id], map: "dep_entry_run_idx")
+  @@index([fixed_asset_id], map: "dep_entry_asset_idx")
+}
+
+model tb_asset_transfer {
+  doc_version        Int      @default(0) @db.Integer
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fixed_asset_id     String   @db.Uuid
+  transfer_date      DateTime @db.Date
+  from_department_id String?  @db.Uuid
+  to_department_id   String?  @db.Uuid
+  from_location_id   String?  @db.Uuid
+  to_location_id     String?  @db.Uuid
+  reason             String?  @db.VarChar
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+
+  fixed_asset tb_fixed_asset @relation(fields: [fixed_asset_id], references: [id])
+
+  @@index([fixed_asset_id], map: "asset_trf_asset_idx")
+}
+
+model tb_asset_disposal {
+  doc_version         Int                      @default(0) @db.Integer
+  id                  String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fixed_asset_id      String                   @db.Uuid
+  disposal_date       DateTime                 @db.Date
+  disposal_type       enum_asset_disposal_type @default(scrapping)
+  sale_proceeds       Decimal                  @default(0) @db.Decimal(18, 2)
+  cost_at_disposal    Decimal                  @db.Decimal(18, 2)
+  acc_dep_at_disposal Decimal                  @db.Decimal(18, 2)
+  net_book_value      Decimal                  @db.Decimal(18, 2)
+  gain_or_loss        Decimal                  @db.Decimal(18, 2) // Positive = Gain, Negative = Loss
+  journal_voucher_id  String?                  @db.Uuid
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+
+  fixed_asset     tb_fixed_asset      @relation(fields: [fixed_asset_id], references: [id])
+  journal_voucher tb_journal_voucher? @relation(fields: [journal_voucher_id], references: [id])
+
+  @@index([fixed_asset_id], map: "asset_disp_asset_idx")
+}
+
+// ==============================================================================
+// 9. TAX MANAGEMENT (TAX — THAI REVENUE DEPARTMENT COMPLIANCE)
+// ==============================================================================
+
+model tb_tax_invoice {
+  doc_version         Int                   @default(0) @db.Integer
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tax_invoice_type    enum_tax_invoice_type // INPUT_VAT (ภ.พ.30 ซื้อ) or OUTPUT_VAT (ภ.พ.30 ขาย)
+  status              enum_tax_status       @default(claimed)
+  tax_invoice_number  String                @db.VarChar(100) // Official Tax Invoice No
+  tax_invoice_date    DateTime              @db.Date
+  filing_period_month Int                   @db.Integer // e.g. 1 to 12
+  filing_period_year  Int                   @db.Integer // e.g. 2026
+
+  // Counterparty Details
+  counterparty_name      String @db.VarChar(255)
+  counterparty_tax_id    String @db.VarChar(50)
+  counterparty_branch_no String @default("00000") @db.VarChar(10) // 00000 = Head Office
+
+  // Amounts
+  base_amount Decimal @db.Decimal(18, 2) // Base for VAT
+  tax_rate    Decimal @default(7.00) @db.Decimal(5, 2)
+  tax_amount  Decimal @db.Decimal(18, 2)
+
+  // Document Lineage
+  ap_invoice_id      String? @db.Uuid
+  ar_invoice_id      String? @db.Uuid
+  customer_id        String? @db.Uuid
+  journal_voucher_id String? @db.Uuid
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  ap_invoice      tb_ap_invoice?      @relation(fields: [ap_invoice_id], references: [id])
+  ar_invoice      tb_ar_invoice?      @relation(fields: [ar_invoice_id], references: [id])
+  customer        tb_customer?        @relation(fields: [customer_id], references: [id])
+  journal_voucher tb_journal_voucher? @relation(fields: [journal_voucher_id], references: [id])
+
+  @@index([tax_invoice_type, filing_period_year, filing_period_month], map: "tax_inv_period_idx")
+  @@index([counterparty_tax_id], map: "tax_inv_counterparty_idx")
+  @@index([tax_invoice_number], map: "tax_inv_number_idx")
+}
+
+model tb_wht_certificate {
+  doc_version         Int                @default(0) @db.Integer
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  certificate_no      String             @db.VarChar(50) // หนังสือรับรองการหักภาษี ณ ที่จ่าย (50 ทวิ)
+  form_type           enum_wht_form_type @default(pnd_53)
+  condition           enum_wht_condition @default(deducted_at_source)
+  certificate_date    DateTime           @db.Date
+  filing_period_month Int                @db.Integer
+  filing_period_year  Int                @db.Integer
+
+  // Payee / Vendor Details
+  payee_name      String  @db.VarChar(255)
+  payee_tax_id    String  @db.VarChar(50)
+  payee_branch_no String  @default("00000") @db.VarChar(10)
+  payee_address   String? @db.VarChar
+
+  // Totals
+  total_base_amount Decimal @db.Decimal(18, 2)
+  total_wht_amount  Decimal @db.Decimal(18, 2)
+
+  // Originating transactions
+  ap_payment_id      String? @db.Uuid
+  ap_invoice_id      String? @db.Uuid
+  journal_voucher_id String? @db.Uuid
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  ap_payment      tb_ap_payment?      @relation(fields: [ap_payment_id], references: [id])
+  ap_invoice      tb_ap_invoice?      @relation(fields: [ap_invoice_id], references: [id])
+  journal_voucher tb_journal_voucher? @relation(fields: [journal_voucher_id], references: [id])
+
+  lines tb_wht_certificate_line[]
+
+  @@unique([certificate_no, deleted_at], map: "wht_cert_no_u")
+  @@index([payee_tax_id], map: "wht_payee_tax_idx")
+  @@index([filing_period_year, filing_period_month], map: "wht_period_idx")
+}
+
+model tb_wht_certificate_line {
+  id                 String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  wht_certificate_id String  @db.Uuid
+  income_description String  @db.VarChar(255) // e.g. "ค่าบริการ (3%)", "ค่าเช่า (5%)"
+  tax_rate           Decimal @db.Decimal(5, 2) // 1.00, 2.00, 3.00, 5.00
+  base_amount        Decimal @db.Decimal(18, 2)
+  wht_amount         Decimal @db.Decimal(18, 2)
+
+  wht_certificate tb_wht_certificate @relation(fields: [wht_certificate_id], references: [id], onDelete: Cascade)
+
+  @@index([wht_certificate_id], map: "wht_line_cert_idx")
+}
+
+// ==============================================================================
+// 10. BUDGET CONTROL (BC)
+// ==============================================================================
+
+model tb_budget_plan {
+  doc_version    Int                @default(0) @db.Integer
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  plan_code      String             @db.VarChar(50) // e.g. "BUDGET-2026-V1"
+  plan_name      String             @db.VarChar(255)
+  fiscal_year_id String             @db.Uuid
+  version        Int                @default(1) @db.Integer
+  status         enum_budget_status @default(draft)
+  description    String?            @db.VarChar
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  fiscal_year tb_fiscal_year   @relation(fields: [fiscal_year_id], references: [id])
+  lines       tb_budget_line[]
+
+  @@unique([plan_code, deleted_at], map: "budget_code_u")
+  @@index([fiscal_year_id], map: "budget_year_idx")
+}
+
+model tb_budget_line {
+  doc_version      Int     @default(0) @db.Integer
+  id               String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  budget_plan_id   String  @db.Uuid
+  fiscal_period_id String  @db.Uuid
+  account_id       String  @db.Uuid
+  department_id    String? @db.Uuid // Cost Center (tb_department)
+  budget_amount    Decimal @default(0) @db.Decimal(18, 2)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+
+  budget_plan   tb_budget_plan       @relation(fields: [budget_plan_id], references: [id], onDelete: Cascade)
+  fiscal_period tb_fiscal_period     @relation(fields: [fiscal_period_id], references: [id])
+  account       tb_chart_of_accounts @relation(fields: [account_id], references: [id])
+
+  @@unique([budget_plan_id, fiscal_period_id, account_id, department_id], map: "budget_line_unique_target")
+  @@index([account_id], map: "budget_line_acct_idx")
+  @@index([department_id], map: "budget_line_dept_idx")
+}
+
+// ==============================================================================
+// 11. INTER-COMPANY (IC)
+// ==============================================================================
+
+model tb_intercompany_partner {
+  doc_version         Int     @default(0) @db.Integer
+  id                  String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  partner_bu_id       String  @db.Uuid // Target BU in platform schema
+  partner_bu_code     String  @db.VarChar(50)
+  partner_name        String  @db.VarChar(255)
+  due_to_account_id   String  @db.Uuid // COA Liability: Intercompany Due To
+  due_from_account_id String  @db.Uuid // COA Asset: Intercompany Due From
+  is_active           Boolean @default(true)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  due_to_account   tb_chart_of_accounts @relation("PartnerDueToAccount", fields: [due_to_account_id], references: [id])
+  due_from_account tb_chart_of_accounts @relation("PartnerDueFromAccount", fields: [due_from_account_id], references: [id])
+
+  @@unique([partner_bu_id, deleted_at], map: "ic_partner_bu_u")
+}
+
+model tb_intercompany_transaction {
+  doc_version      Int                      @default(0) @db.Integer
+  id               String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  transaction_no   String                   @db.VarChar(50)
+  transaction_date DateTime                 @db.Date
+  origin_bu_id     String                   @db.Uuid
+  target_bu_id     String                   @db.Uuid
+  currency_id      String                   @db.Uuid
+  amount           Decimal                  @db.Decimal(18, 2)
+  status           enum_intercompany_status @default(pending_approval)
+  description      String?                  @db.VarChar
+
+  origin_jv_id String? @db.Uuid // Reciprocal JV in originating BU
+  target_jv_id String? @db.Uuid // Reciprocal JV in target BU
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  origin_jv tb_journal_voucher? @relation("OriginVoucher", fields: [origin_jv_id], references: [id])
+  target_jv tb_journal_voucher? @relation("TargetVoucher", fields: [target_jv_id], references: [id])
+
+  @@unique([transaction_no, deleted_at], map: "ic_tx_no_u")
+  @@index([origin_bu_id, target_bu_id], map: "ic_tx_bus_idx")
+  @@index([status], map: "ic_tx_status_idx")
+}

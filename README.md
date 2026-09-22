@@ -82,11 +82,28 @@ Carmen ERP Platform
 | Reports | FastReport .NET (.frx) |
 | Frontend | React 19, Vite, Tailwind 4 |
 
+## Database Schema
+
+The core database design is modeled as a canonical, production-ready Prisma schema:
+
+- 📄 [prisma/schema.prisma](prisma/schema.prisma) — Complete PostgreSQL schema covering 35+ relational entities across all accounting modules.
+  - **Core Foundation**: `tb_chart_of_accounts`, `tb_dimension_type`, `tb_dimension_value`, `tb_account_dimension_rule`, `tb_fiscal_year`, `tb_fiscal_period`, `tb_period_close_history`
+  - **General Ledger (Two-Tier)**: `tb_journal_voucher`, `tb_journal_voucher_line`, `tb_journal_voucher_line_dimension`, `tb_gl_entry`, `tb_gl_entry_dimension`, `tb_fx_revaluation_run`
+  - **Accounts Payable**: `tb_ap_invoice`, `tb_ap_invoice_line`, `tb_ap_invoice_line_dimension`, `tb_ap_invoice_matching` (3-way match to PO/GRN), `tb_ap_payment`, `tb_ap_payment_allocation`
+  - **Accounts Receivable**: `tb_customer`, `tb_customer_group`, `tb_ar_invoice`, `tb_ar_invoice_line`, `tb_ar_invoice_line_dimension`, `tb_ar_receipt`, `tb_ar_receipt_allocation`
+  - **Cash & Bank**: `tb_bank`, `tb_bank_account`, `tb_petty_cash_fund`, `tb_petty_cash_expense`, `tb_bank_statement`, `tb_bank_statement_line`, `tb_bank_reconciliation`, `tb_bank_reconciliation_item`
+  - **Fixed Assets**: `tb_asset_category`, `tb_fixed_asset`, `tb_asset_depreciation_run`, `tb_asset_depreciation_entry`, `tb_asset_transfer`, `tb_asset_disposal`
+  - **Tax Management (Thai Revenue)**: `tb_tax_invoice` (PP30 Input/Output/Undue VAT), `tb_wht_certificate` & `tb_wht_certificate_line` (50 ทวิ, PND 3/53/54)
+  - **Budget Control**: `tb_budget_plan`, `tb_budget_line`
+  - **Inter-Company**: `tb_intercompany_partner` (Due-To/Due-From mappings), `tb_intercompany_transaction`
+
 ## Documentation Structure
 
 ```text
 carmen-accounting-concept/
 ├── README.md                              ← You are here
+├── prisma/
+│   └── schema.prisma                      ← Canonical Accounting Prisma Schema (validated)
 ├── docs/
 │   ├── PRD-accounting-system-overview.md  ← Master PRD
 │   ├── PRD-module-ar.md                   ← Accounts Receivable
