@@ -10,7 +10,7 @@
 
 ## Overview
 
-The Carmen Accounting System is a full-spectrum, multi-module accounting platform purpose-built for **hotels, resorts, and restaurant chains**. It integrates into the existing Carmen ERP architecture as a new accounting microservice (`micro-accounting`), providing:
+The Carmen Accounting System is a full-spectrum, multi-module accounting platform purpose-built for **hotels, resorts, and restaurant chains**. It is implemented inside the existing `micro-business` service of [`carmen-turborepo-backend-v2`](../carmen-turborepo-backend-v2) (`apps/micro-business/src/gl`, `src/ap`, …) and exposed through `backend-gateway`, providing:
 
 - **USALI 12th Edition** departmental accounting and reporting
 - **TFRS / Thai GAAP** statutory compliance
@@ -23,28 +23,22 @@ The Carmen Accounting System is a full-spectrum, multi-module accounting platfor
 ```text
 Carmen ERP Platform
 ├── React SPA (Vite, React 19)          ← Frontend
-├── carmen-turborepo-backend-v2         ← Main API Application (NestJS 11 Gateway, Auth, HTTP→TCP Bridge)
-├── micro-business (existing)           ← Procurement & Inventory
-├── micro-accounting (NEW)              ← This system
-│   ├── General Ledger (GL)
-│   ├── Accounts Payable (AP)
-│   ├── Accounts Receivable (AR)
-│   ├── Cash & Bank Management (CB)
-│   ├── Fixed Assets (FA)
-│   ├── Budget Control (BC)
-│   ├── Tax Management (TAX)
-│   ├── Period End / Closing (PE)
-│   ├── Inter-company (IC)
-│   └── Financial Reporting (RPT)
-└── PostgreSQL (dual-schema multi-tenancy)
+└── carmen-turborepo-backend-v2         ← NestJS 11 monorepo (Bun, Turborepo)
+    ├── backend-gateway                 ← Single HTTP entry point, Keycloak auth, HTTP-as-RPC to services
+    ├── micro-business                  ← Domain service: procurement, inventory, master data + ACCOUNTING
+    │   ├── src/gl/                     ← General Ledger (implemented) + dimensions + subledger posting facade
+    │   ├── src/ap/                     ← Accounts Payable: invoice/DN/CN/deposit + payment voucher (implemented)
+    │   └── src/<ar|cb|fa|tax|…>/       ← Remaining modules (planned, same service)
+    ├── micro-cluster / micro-file / micro-keycloak / micro-notification
+    └── PostgreSQL                      ← platform schema + one tenant schema per BU (tb_* tables)
 ```
 
 ## Module Inventory
 
 | # | Module | Code | Status | PRD |
 |---|--------|------|--------|-----|
-| 1 | General Ledger | GL | New Concept FRD | [GL JV Fast Entry FRD](../Accounting-docs/GL/Journal%20Voucher/carmen_cloud_erp_functional_requirement_document_frd.md) |
-| 2 | Accounts Payable | AP | New Concept FRD | [AP Module FRD v4.5.06](../Accounting-docs/AP/Invoice/carmen_cloud_erp_ap_module_functional_requirement_document_frd.md) |
+| 1 | General Ledger | GL | **Implemented** — `micro-business/src/gl` | [GL JV Fast Entry FRD](../Accounting-docs/GL/Journal%20Voucher/carmen_cloud_erp_functional_requirement_document_frd.md) |
+| 2 | Accounts Payable | AP | **Implemented** — `micro-business/src/ap` (backend-v2 PR #671) | [AP Module FRD v4.5.06](../Accounting-docs/AP/Invoice/carmen_cloud_erp_ap_module_functional_requirement_document_frd.md) |
 | 3 | Accounts Receivable | AR | **New** | [PRD-module-ar.md](docs/PRD-module-ar.md) |
 | 4 | Cash & Bank Management | CB | **New** | [PRD-module-cash-bank.md](docs/PRD-module-cash-bank.md) |
 | 5 | Fixed Assets | FA | **New** | [PRD-module-fa.md](docs/PRD-module-fa.md) |
@@ -61,11 +55,12 @@ Carmen ERP Platform
 | Decision | Details |
 |----------|---------|
 | **Multi-currency** | Configurable base currency per BU; realized FX on payment; unrealized FX on period-end revaluation |
-| **GL Posting** | Hybrid — AP & FA auto-post; AR & Bank require manual review |
+| **Service boundary** | All accounting modules live in `micro-business` next to `src/gl` (decided 2026-09-23) — no separate accounting service |
+| **GL Posting** | Subledgers never write `tb_gl_*` directly; they post through `GlSubledgerPostingService` (idempotent per source document). Hybrid: AP & FA auto-post; AR & Bank require manual review |
 | **Dimensions** | 7 configurable: Market, Sales, Project, Event, Location, Channel, Guest Type |
 | **Reporting** | Dual framework: USALI departmental + TFRS statutory |
 | **Approval** | LOA (Level of Authority) workflow reused across all modules |
-| **Multi-tenancy** | Dual-schema: platform (cross-tenant) + tenant (per-BU) |
+| **Multi-tenancy** | Platform schema (cross-tenant) + one tenant schema per BU, resolved per request by `TenantContextRunner` |
 | **Audit Trail** | Immutable activity logs across all modules |
 
 ## Tech Stack
@@ -74,28 +69,25 @@ Carmen ERP Platform
 |-------|-----------|
 | Runtime | NestJS 11, Bun |
 | ORM | Prisma |
-| Database | PostgreSQL (dual-schema) |
-| Communication | TCP MessagePattern (NestJS RPC) |
+| Database | PostgreSQL — `prisma-shared-schema-platform` + `prisma-shared-schema-tenant` |
+| Communication | HTTP-as-RPC (`@repo/nest-http-transport`, `@MessagePattern`, generated `@repo/rpc-contract`) — synchronous, no event bus |
 | Auth | Keycloak (OIDC/JWT) |
 | Files | MinIO |
-| Cache/Queue | Redis (asynq) |
-| Reports | FastReport .NET (.frx) |
+| Scheduled jobs | `micro-cronjobs` (e.g. GL `run-due` for scheduled posts and auto-reversal) |
+| Reports | FastReport .NET (.frx) via `micro-report` |
 | Frontend | React 19, Vite, Tailwind 4 |
 
 ## Database Schema
 
-The core database design is modeled as a canonical, production-ready Prisma schema:
+The **authoritative schema** is the tenant Prisma schema in `carmen-turborepo-backend-v2/packages/prisma-shared-schema-tenant/prisma/schema.prisma`. Implemented accounting tables:
 
-- 📄 [prisma/schema.prisma](prisma/schema.prisma) — Complete PostgreSQL schema covering 35+ relational entities across all accounting modules.
-  - **Core Foundation**: `tb_chart_of_accounts`, `tb_dimension_type`, `tb_dimension_value`, `tb_account_dimension_rule`, `tb_fiscal_year`, `tb_fiscal_period`, `tb_period_close_history`
-  - **General Ledger (Two-Tier)**: `tb_journal_voucher`, `tb_journal_voucher_line`, `tb_journal_voucher_line_dimension`, `tb_gl_entry`, `tb_gl_entry_dimension`, `tb_fx_revaluation_run`
-  - **Accounts Payable**: `tb_ap_invoice`, `tb_ap_invoice_line`, `tb_ap_invoice_line_dimension`, `tb_ap_invoice_matching` (3-way match to PO/GRN), `tb_ap_payment`, `tb_ap_payment_allocation`
-  - **Accounts Receivable**: `tb_customer`, `tb_customer_group`, `tb_ar_invoice`, `tb_ar_invoice_line`, `tb_ar_invoice_line_dimension`, `tb_ar_receipt`, `tb_ar_receipt_allocation`
-  - **Cash & Bank**: `tb_bank`, `tb_bank_account`, `tb_petty_cash_fund`, `tb_petty_cash_expense`, `tb_bank_statement`, `tb_bank_statement_line`, `tb_bank_reconciliation`, `tb_bank_reconciliation_item`
-  - **Fixed Assets**: `tb_asset_category`, `tb_fixed_asset`, `tb_asset_depreciation_run`, `tb_asset_depreciation_entry`, `tb_asset_transfer`, `tb_asset_disposal`
-  - **Tax Management (Thai Revenue)**: `tb_tax_invoice` (PP30 Input/Output/Undue VAT), `tb_wht_certificate` & `tb_wht_certificate_line` (50 ทวิ, PND 3/53/54)
-  - **Budget Control**: `tb_budget_plan`, `tb_budget_line`
-  - **Inter-Company**: `tb_intercompany_partner` (Due-To/Due-From mappings), `tb_intercompany_transaction`
+- **General Ledger (existing)**: `tb_chart_of_accounts`, `tb_gl_account_group`, `tb_gl_period`, `tb_gl_jv_prefix`, `tb_gl_jv_header`, `tb_gl_jv_detail`, `tb_gl_balance`, `tb_gl_budget*`, `tb_gl_jv_template*`, `tb_cost_center*`
+- **Dimensions**: `tb_gl_dimension`, `tb_gl_dimension_value`, `tb_gl_account_dimension_rule`, `tb_gl_jv_detail_dimension`
+- **Accounts Payable**: `tb_ap_invoice`, `tb_ap_invoice_detail`, `tb_ap_invoice_detail_dimension`, `tb_ap_invoice_detail_source` (GRN link), `tb_ap_invoice_reference` (CN/deposit netting), `tb_ap_invoice_tax` (ภ.พ.30 record), `tb_ap_payment`, `tb_ap_payment_detail`, `tb_ap_payment_wht`, `tb_ap_payment_expense`
+- **Master data**: `tb_bank_account`; `tb_tax_profile` gains `tax_type`/WHT fields; `tb_vendor` gains AP defaults
+- Migration: `20260923060040_accounting_foundation_ap`
+
+[prisma/schema.prisma](prisma/schema.prisma) in this repo is the **original concept draft** (35+ entities for every module, written for a separate service). It is kept as a reference for the modules not yet built; do not treat its table or field names as the implemented design.
 
 ## Documentation Structure
 
@@ -103,7 +95,7 @@ The core database design is modeled as a canonical, production-ready Prisma sche
 carmen-accounting-concept/
 ├── README.md                              ← You are here
 ├── prisma/
-│   └── schema.prisma                      ← Canonical Accounting Prisma Schema (validated)
+│   └── schema.prisma                      ← Concept draft (superseded by the backend-v2 tenant schema)
 ├── docs/
 │   ├── PRD-accounting-system-overview.md  ← Master PRD
 │   ├── PRD-module-ar.md                   ← Accounts Receivable
@@ -113,7 +105,10 @@ carmen-accounting-concept/
 │   ├── PRD-module-tax.md                  ← Tax Management
 │   ├── PRD-module-period-end.md           ← Period End / Closing
 │   ├── PRD-module-intercompany.md         ← Inter-company
-│   └── PRD-module-reporting.md            ← Financial Reporting
+│   ├── PRD-module-reporting.md            ← Financial Reporting
+│   └── superpowers/
+│       ├── specs/2026-09-23-accounting-foundation-ap-design.md  ← Implemented design: foundation + AP
+│       └── plans/2026-09-23-accounting-foundation-ap.md         ← Implementation plan (17 tasks)
 ├── Accounting-docs/                       ← New Concept FRDs & Mockups (AP, GL, Master Data)
 │   ├── AP/                                ← AP Invoice FRD + Mockups
 │   ├── GL/                                ← GL JV FRD + Mockups

@@ -1,8 +1,8 @@
 # Carmen Cloud ERP — Accounting System PRD
 
 **Product:** Carmen Cloud ERP — Accounting Module  
-**Version:** 1.0  
-**Last Updated:** 2026-09-22  
+**Version:** 1.1  
+**Last Updated:** 2026-09-23 (architecture aligned with the implemented `micro-business` design)  
 **Scope:** Full-spectrum Accounting System for Hospitality Industry  
 **Standard Compliance:** USALI 12th Revised Edition, TFRS (Thai Financial Reporting Standards), Thai Revenue Department Regulations  
 
@@ -26,8 +26,8 @@ The Accounting System comprises **10 functional modules**:
 
 | # | Module | Status | Document Reference |
 |---|--------|--------|-------------------|
-| 1 | General Ledger (GL) | New Concept FRD | [GL JV Fast Entry FRD V2.14](../Accounting-docs/GL/Journal%20Voucher/carmen_cloud_erp_functional_requirement_document_frd.md) |
-| 2 | Accounts Payable (AP) | New Concept FRD | [AP Module FRD v4.5.06](../Accounting-docs/AP/Invoice/carmen_cloud_erp_ap_module_functional_requirement_document_frd.md) |
+| 1 | General Ledger (GL) | **Implemented** (`micro-business/src/gl`) | [GL JV Fast Entry FRD V2.14](../Accounting-docs/GL/Journal%20Voucher/carmen_cloud_erp_functional_requirement_document_frd.md) |
+| 2 | Accounts Payable (AP) | **Implemented** (`micro-business/src/ap`, backend-v2 PR #671) — design: [spec](./superpowers/specs/2026-09-23-accounting-foundation-ap-design.md) | [AP Module FRD v4.5.06](../Accounting-docs/AP/Invoice/carmen_cloud_erp_ap_module_functional_requirement_document_frd.md) |
 | 3 | Accounts Receivable (AR) | **New** | [PRD-module-ar.md](./PRD-module-ar.md) |
 | 4 | Cash & Bank Management | **New** | [PRD-module-cash-bank.md](./PRD-module-cash-bank.md) |
 | 5 | Fixed Assets (FA) | **New** | [PRD-module-fa.md](./PRD-module-fa.md) |
@@ -43,58 +43,63 @@ The Accounting System comprises **10 functional modules**:
 
 ### 2.1 Integration into Carmen ERP Platform
 
-The Accounting System is exposed through the **Main API Application** (`carmen-turborepo-backend-v2` / `backend-gateway`) and implemented as a **new accounting microservice** (`micro-accounting`) within the Carmen ERP architecture:
+The Accounting System is exposed through **`backend-gateway`** and implemented **inside the existing `micro-business` service** of `carmen-turborepo-backend-v2`, next to procurement, inventory and master data. There is no separate accounting microservice (decision 2026-09-23): the GL, the workflow engine, running-code numbering and tenant context already live in `micro-business`, AP must join vendor/PO/GRN data in the same tenant database, and the platform has no event bus to decouple a second service.
 
 ```
-                          ┌──────────────────────────────────────────┐
-                          │               Client Layer               │
-                          │  React SPA  │  Platform Admin  │  KB UI  │
-                          │  + Accounting UI Module                  │
-                          └────────────────────┬─────────────────────┘
-                                               │
-                                               │ HTTP / REST (JWT Auth, CORS)
-                                               ▼
-┌───────────────────────────────────────────────────────────────────────┐
-│     Main API Application — carmen-turborepo-backend-v2 (:4001)        │
-│          (NestJS Backend Gateway / TCP MessagePattern RPC)            │
-└────┬──────────┬───────────┬────────────────────────┬──────────────────┘
-     │          │           │                        │
-     ▼          ▼           ▼                        ▼
-┌────────┐ ┌────────┐ ┌──────────┐ ┌────────────────────────────────────┐
-│ micro- │ │ micro- │ │ micro-   │ │       micro-accounting (NEW)       │
-│business│ │ file   │ │ notif /  │ │                                    │
-│(domain)│ │        │ │ cluster  │ │  GL │ AP │ AR │ CB │ FA │ BC │ TAX │
-└────────┘ └────────┘ └──────────┘ │  PE │ IC │ RPT                     │
-                                   └─────────────────┬──────────────────┘
-                                                     │
-                                                     ▼
-                                           ┌──────────────────┐
-                                           │   PostgreSQL     │
-                                           │  Tenant Schema   │
-                                           │ (acct_* tables)  │
-                                           └──────────────────┘
+                  ┌──────────────────────────────────────────┐
+                  │               Client Layer               │
+                  │  React SPA  │  Platform Admin  │ Mobile  │
+                  │  + Accounting UI Module                  │
+                  └────────────────────┬─────────────────────┘
+                                       │ HTTPS / REST (Keycloak JWT)
+                                       ▼
+┌────────────────────────────────────────────────────────────────────┐
+│        backend-gateway (NestJS 11) — carmen-turborepo-backend-v2   │
+│   api/:bu_code/gl-jv · ap-invoice · ap-payment · config/…          │
+└──────┬──────────────────────────────┬──────────────────────────────┘
+       │ HTTP-as-RPC (@MessagePattern, @repo/rpc-contract)           │
+       ▼                              ▼
+┌──────────────────────────────────┐  ┌───────────────────────────────┐
+│ micro-business                   │  │ micro-cluster · micro-file ·   │
+│  procurement · inventory · master│  │ micro-keycloak · micro-notif   │
+│  ├── src/gl/  GL, dimensions,    │  └───────────────────────────────┘
+│  │            subledger posting  │
+│  ├── src/ap/  invoice, payment   │   sidecars: micro-report (FastReport),
+│  └── src/<ar|cb|fa|tax|…>/ (next)│             micro-cronjobs, micro-data
+└──────────────┬───────────────────┘
+               ▼
+     ┌──────────────────────────────┐
+     │ PostgreSQL                   │
+     │  platform schema (cluster/BU)│
+     │  tenant schema per BU (tb_*) │
+     └──────────────────────────────┘
 ```
+
+**Module layout inside `micro-business`:** one flat NestJS module per feature (e.g. `gl-dimension`, `gl-subledger-posting`, `ap-invoice`, `ap-payment`, `bank-account`), each registered in `app.module.ts`, with a matching gateway module under `apps/backend-gateway/src/application/` or `src/config/`.
+
+**Posting contract:** subledgers never write `tb_gl_*` tables. They call `GlSubledgerPostingService.postFromSource / reverseBySource` inside a single transaction (`runAtomic`), idempotent per `(source, source_ref_type, source_ref_id)`. GL void/reverse of a subledger-generated voucher is refused — the source document must be voided instead.
 
 ### 2.2 Technology Stack
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
-| Main API Application | `carmen-turborepo-backend-v2` | NestJS 11 Gateway (`backend-gateway`), HTTP routing, auth & rate limiting |
-| Runtime | NestJS 11, Bun | Consistent with existing microservices |
-| ORM | Prisma | Schema-per-tenant isolation |
-| Database | PostgreSQL | Dual-schema: platform (cross-tenant) + tenant (per-BU) |
-| Communication | TCP MessagePattern | NestJS microservice RPC pattern |
+| API entry | `backend-gateway` | NestJS 11 gateway: HTTP routing, Keycloak auth, `AppIdGuard`, `@Permission` |
+| Domain service | `micro-business` | NestJS 11 on Bun; hosts GL, AP and the remaining accounting modules |
+| ORM | Prisma | `prisma-shared-schema-platform` + `prisma-shared-schema-tenant` |
+| Database | PostgreSQL | Platform schema (cross-tenant) + one tenant schema per BU |
+| Communication | HTTP-as-RPC | `@repo/nest-http-transport`, `@MessagePattern`, generated `@repo/rpc-contract`; synchronous, no message queue |
 | Authentication | Keycloak (OIDC/JWT) | Shared with Carmen platform |
-| File Storage | MinIO | For attachments, tax documents, reports |
-| Cache/Queue | Redis (asynq) | For background jobs (depreciation runs, report generation) |
-| Reporting | FastReport .NET (.frx) | Via existing micro-report service |
+| File Storage | MinIO via `micro-file` | Attachments as `fileToken` arrays on documents |
+| Scheduled jobs | `micro-cronjobs` | e.g. GL `run-due` for scheduled posts and auto-reversal |
+| Reporting | FastReport .NET (.frx) | Via existing `micro-report` / `report-render` services |
 
 ### 2.3 Multi-Tenancy Model
 
-The accounting microservice follows the same dual-schema model as the rest of Carmen ERP:
+Accounting follows the same model as the rest of Carmen ERP:
 
-- **Platform Schema** (shared): Cluster configuration, business unit setup, user management, application roles, accounting module licenses
-- **Tenant Schema** (per-BU): All accounting transactions, master data, tax records, period controls — isolated per business unit
+- **Platform Schema** (shared): Cluster configuration, business unit setup (incl. base currency), user management, application roles, module licenses
+- **Tenant Schema** (per-BU): All accounting transactions, master data, tax records, period controls — `TenantContextRunner` resolves the BU's schema from `bu_code` on every RPC call
+- Accounting settings (control accounts, prefixes, FX accounts) live in the tenant's `tb_application_config` under the `gl_setting` key
 
 ---
 
@@ -125,7 +130,8 @@ All accounting modules support **7 configurable analysis dimensions** at the tra
 | 6 | Channel | Website, Booking.com, Walk-in | Distribution channel |
 | 7 | Guest Type | FIT, Group, Long-stay, VIP | Guest segmentation |
 
-- Dimensions are **configurable per account code** — each COA account defines which dimensions are mandatory, optional, or hidden
+- Dimensions are **data-driven** (`tb_gl_dimension`, `tb_gl_dimension_value`) — the 7 above are seeded, more can be added
+- Each COA account can mark a dimension **mandatory, optional or prohibited** (`tb_gl_account_dimension_rule`); rules are enforced at JV create, submit and post (system closing/reversal and template-run vouchers are exempt)
 - Dimension values are maintained as master data with active/inactive status
 - All modules generate journal entries with dimension data for drill-down reporting
 
@@ -135,7 +141,7 @@ Sub-modules interact with the General Ledger using a **hybrid posting approach**
 
 | Module | GL Posting Mode | Rationale |
 |--------|----------------|-----------|
-| Accounts Payable (AP) | **Auto-post** on Submit/Approval | Standardized AP journal entries; high volume, consistent patterns |
+| Accounts Payable (AP) | **Auto-post** on final approval (or on submit when the BU has no AP workflow) | Standardized AP journal entries; high volume, consistent patterns. Implemented through the subledger posting facade |
 | Fixed Assets (FA) | **Auto-post** on depreciation run and disposal | Automated monthly calculations; no manual judgment needed |
 | Accounts Receivable (AR) | **Manual review** before GL posting | Revenue recognition may require judgment; PMS interface data needs validation |
 | Cash & Bank (CB) | **Manual review** before GL posting | Bank reconciliation differences may need investigation before posting |
@@ -146,7 +152,7 @@ Sub-modules interact with the General Ledger using a **hybrid posting approach**
 
 ### 3.4 Approval Workflow (LOA)
 
-All transactional modules reuse the **Level of Authority (LOA) workflow** pattern established in the existing AP and GL FRDs:
+All transactional modules reuse the **Level of Authority (LOA) workflow** pattern through the shared `WorkflowOrchestratorService` in `micro-business` (workflow types `gl_jv`, `ap_invoice`, `ap_payment`, …). Implemented documents use the statuses `draft → in_review → posted → void`; *reject* returns the document to draft:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -187,7 +193,7 @@ Every accounting module must implement a consistent audit trail:
 | `performed_at` | Timestamp (UTC) |
 | `ip_address` | Client IP address |
 
-Audit logs are **immutable** — they cannot be modified or deleted.
+Audit logs are **immutable** — they cannot be modified or deleted. Implementation: row-level audit through the Prisma audit extension (`@repo/log-events-library`) for GL/master tables, and action-level activity entries (`activity-registry.ts`) for document modules such as AP.
 
 ---
 
@@ -368,19 +374,19 @@ The following master data entities are **prerequisites** for the Accounting Syst
 
 - VAT profiles: VAT07_ADD (7% exclusive), VAT07_INC (7% inclusive), VAT_UNCLAIM, NONE
 - WHT profiles: WHT01 (1% transport), WHT02 (2% advertising), WHT03 (3% services), WHT05 (5% rental), etc.
-- Each profile defines: tax rate, GL account code, tax form type
+- Each profile defines: tax rate, GL account code, tax form type — implemented by extending the existing `tb_tax_profile` with `tax_type` (vat/wht), `chart_of_accounts_id`, `wht_pnd_form`, `wht_income_type`
 - Existing FRD: Master Data / WHT documentation
 
 ### 6.5 Vendor & Customer Master
 
 - Vendor master: used by AP module (existing in Carmen procurement)
 - Customer master: **new** for AR module — guest accounts, corporate clients, travel agents
-- Each master record defines: default currency, credit terms, tax profile, GL account mapping
+- Each master record defines: default currency, credit terms, tax profile, GL account mapping — `tb_vendor` now carries `default_currency_*`, `credit_term_*` and `ap_chart_of_accounts_id` as AP defaults
 
 ### 6.6 Bank Account Master
 
-- **New** master data for Cash & Bank module
-- Bank name, branch, account number, account type (current/savings), GL account mapping
+- Implemented as `tb_bank_account` (code, bank, branch, account number, currency, GL account) — used by AP payment vouchers today; Cash & Bank will extend it
+- Account type (current/savings) and reconciliation data come with the Cash & Bank module
 - Used for payment vouchers, receipt vouchers, and bank reconciliation
 
 ### 6.7 Asset Category
