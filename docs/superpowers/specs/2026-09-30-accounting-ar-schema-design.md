@@ -96,11 +96,11 @@ enum: `enum_ar_invoice_doc_type`, `enum_ar_invoice_status`, `enum_ar_invoice_sou
 ทำตาม `apps/micro-business/CLAUDE.md` §Tenant migrations และ skill `tenant-migrations` (dev DB มี drift ห้ามใช้ `migrate dev`)
 
 1. สร้าง scratch database ใน Postgres local ด้วย connection string ที่พิมพ์เองทั้งเส้น (**ห้าม** เอา `.env` มาแก้ชื่อ database) และตรวจ `SELECT current_database(), current_schema()` ก่อนยิง DDL ใดๆ
-2. `DATABASE_URL=<scratch> npx prisma migrate deploy` — migration เดิมทั้งหมดต้องลงครบ
+2. `DATABASE_URL=<scratch> bunx prisma migrate deploy` — migration เดิมทั้งหมดต้องลงครบ (`prisma.config.ts` อ่าน `DATABASE_URL`; ค่าที่ใส่บน command line ชนะ `.env` ตรวจแล้ว 2026-09-30)
 3. แก้ `schema.prisma` ตาม §4
-4. `npx prisma migrate diff --from-url <scratch> --to-schema-datamodel prisma/schema.prisma --script > migrations/<ts>_accounting_ar_tables/migration.sql` โดย `<ts>` = เวลาปัจจุบัน UTC รูปแบบ `YYYYMMDDHHmmss` ต้องมากกว่า `20260928130000`
+4. `DATABASE_URL=<scratch> bunx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script > prisma/migrations/<ts>_accounting_ar_tables/migration.sql` (Prisma 7 ไม่มี `--from-url`/`--to-schema-datamodel`) โดย `<ts>` = เวลาปัจจุบัน UTC รูปแบบ `YYYYMMDDHHmmss` ต้องมากกว่า `20260928130000`
 5. review SQL: มีเฉพาะ `CREATE TYPE` 7, `CREATE TABLE` 10, index/unique, `ADD CONSTRAINT ... FOREIGN KEY` ตาม §4.1 — ห้ามมี `ALTER`/`DROP` ของตารางอื่น (ถ้ามีแปลว่า scratch หรือ schema เพี้ยน หยุดแล้วหาสาเหตุ)
-6. `DATABASE_URL=<scratch> npx prisma migrate deploy` แล้ว `npx prisma migrate diff --from-url <scratch> --to-schema-datamodel prisma/schema.prisma --exit-code` ต้องได้ exit 0
+6. `DATABASE_URL=<scratch> bunx prisma migrate deploy` แล้ว `DATABASE_URL=<scratch> bunx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code` ต้องได้ exit 0
 7. `bun run db:generate` ใน prisma package, `bun run check-types` ที่ root (turbo ครอบ micro-business + gateway), `bun run test` ใน prisma package (`client.test.ts`)
 8. ลบ scratch database
 
