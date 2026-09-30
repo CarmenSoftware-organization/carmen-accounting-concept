@@ -246,15 +246,18 @@ $$
 
 ## 6. Key Entity Summary
 
-| Entity | Table (FRD) | Description |
-|--------|-------------|-------------|
-| AR document header | `ar_invoice_header` | ARIV / ARDN / ARCN / ARDP header: status, source, tax-invoice flag + number, credit term, due date, WHT (reference), totals, unpaid |
-| AR document detail | `ar_invoice_detail` | Lines: group no, reference, stay dates, qty/price, discount, revenue account/dept, Tax 1/2 (profile, account, dept, amount, override), AR account/dept, 6 dimensions, `is_pms_folio`, unpaid |
-| Doc reference | `ar_document_reference` | Applied deposits on an ARIV: ref doc, original rate, applied net/tax/total, realized FX |
-| Output tax register | `ar_tax_invoice` | Tax invoice no/date, tax period, status (`Pending`/`Confirm`/`Submitted`), customer registered name, 13-digit tax ID, 5-digit branch, split address, THB base/tax/total |
-| Customer profile | `ar_profile` | Customer master: AR code, default currency, credit term, tax entity — **referenced but not specified by the FRD** |
-| Receipt | *(to be specified)* | FRD puts `ARRC` in the `ar_invoice_header.doc_prefix` enum. Recommendation: separate `ar_receipt` + allocation tables, mirroring `ap_invoice` / `ap_payment` (review item 5) |
-| Audit log | `carmen_audit_logs` | Immutable log of create/edit/override/approve/reject/void with IP and user |
+| Entity | Table (FRD) | Draft table ([prisma/schema.prisma](../prisma/schema.prisma) §4) | Description |
+|--------|-------------|------------------|-------------|
+| AR document header | `ar_invoice_header` | `tb_ar_invoice` | ARIV / ARDN / ARCN / ARDP header: status, source, tax-invoice flag + number, credit term, due date, WHT (reference), totals, unpaid |
+| AR document detail | `ar_invoice_detail` | `tb_ar_invoice_detail` + `tb_ar_invoice_detail_dimension` | Lines: group no, reference, stay dates, qty/price, discount, revenue account/dept, Tax 1/2 (profile, account, dept, amount, override), AR account/dept, 6 dimensions, `is_pms_folio`, unpaid |
+| Doc reference | `ar_document_reference` | `tb_ar_invoice_reference` | Applied deposits on an ARIV: ref doc, original rate, applied net/tax/total, realized FX |
+| Output tax register | `ar_tax_invoice` | `tb_ar_tax_invoice` (FK to invoice **or** receipt for TXRC) | Tax invoice no/date, tax period, status (`Pending`/`Confirm`/`Submitted`), customer registered name, 13-digit tax ID, 5-digit branch, split address, THB base/tax/total |
+| Customer profile | `ar_profile` | `tb_customer` + `tb_customer_address` (mirrors `tb_vendor`) | Customer master: AR code, default currency, credit term, tax entity — **referenced but not specified by the FRD** |
+| Receipt | *(to be specified)* | `tb_ar_receipt` + `tb_ar_receipt_detail` + `tb_ar_receipt_wht` (mirrors `tb_ap_payment`) | FRD puts `ARRC` in the `ar_invoice_header.doc_prefix` enum. Recommendation: separate `ar_receipt` + allocation tables, mirroring `ap_invoice` / `ap_payment` (review item 5) |
+| Audit log | `carmen_audit_logs` | activity registry (existing) | Immutable log of create/edit/override/approve/reject/void with IP and user |
+
+Draft Prisma models (2026-09-30) mirror the implemented AP tables field-for-field and mark every field that
+waits on a §9 decision with `// ⚠ OI-n`. They are documentation only until the AR sub-project starts.
 
 Implementation note: the FRD models `BIGINT` keys and hard-coded defaults (`currency_code` = `USD`, `dr_account_code` = `1130000`, `dr_dept_code` = `GEN`). In the backend these follow micro-business conventions — UUID keys, BU base currency, and account defaults from `gl_setting` as done for AP.
 

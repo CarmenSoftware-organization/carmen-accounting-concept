@@ -26,6 +26,10 @@
 //   tb_ap_payment_allocation                               -> tb_ap_payment_detail
 //   tb_bank, tb_bank_account (draft)                       -> tb_bank_account (implemented)
 //   tb_budget_plan, tb_budget_line                         -> tb_gl_budget, tb_gl_budget_detail
+//   tb_tax_invoice (draft)                                 -> tb_ap_invoice_tax (implemented) / tb_ar_tax_invoice (draft)
+//
+// AR draft (2026-09-30) was redesigned to mirror the implemented AP tables; see docs/PRD-module-ar.md §6.
+// `// ⚠ OI-n` marks fields waiting on a BA decision (PRD-module-ar §9).
 //
 // Related: docs/PRD-accounting-system-overview.md, docs/superpowers/specs/2026-09-23-accounting-foundation-ap-design.md
 // ==============================================================================
@@ -426,6 +430,7 @@ model tb_bank_account {
 
 // source: schema.prisma:1554-1595
 model tb_tax_profile {
+  // NOTE: 13 back-relation list fields to non-accounting tables trimmed from this extract
   doc_version Int      @default(0) @db.Integer
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name        String   @db.VarChar
@@ -450,19 +455,6 @@ model tb_tax_profile {
   deleted_by_id String?   @db.Uuid
 
   tb_chart_of_accounts                tb_chart_of_accounts?                 @relation(fields: [chart_of_accounts_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tb_credit_note_detail               tb_credit_note_detail[]
-  tb_product                          tb_product[]
-  tb_product_category                 tb_product_category[]
-  tb_product_item_group               tb_product_item_group[]
-  tb_product_sub_category             tb_product_sub_category[]
-  tb_purchase_order_detail            tb_purchase_order_detail[]
-  tb_good_received_note_detail_item   tb_good_received_note_detail_item[]
-  tb_purchase_request_detail          tb_purchase_request_detail[]
-  tb_purchase_request_template_detail tb_purchase_request_template_detail[]
-  tb_pricelist_detail                 tb_pricelist_detail[]
-  tb_extra_cost_detail                tb_extra_cost_detail[]
-  tb_vendor                           tb_vendor[]
-  tb_tax_profile_comment              tb_tax_profile_comment[]
 
   @@unique([name, deleted_at], map: "taxprofile_name_deletedat_u")
   @@index([name], map: "taxprofile_name_idx")
@@ -1366,38 +1358,8 @@ model tb_ap_payment_expense {
 }
 
 // ==============================================================================
-// 3. DRAFT — enums (13) [concept only]
+// 3. DRAFT — enums (14) [concept only]
 // ==============================================================================
-
-enum enum_ar_invoice_status {
-  draft
-  submitted
-  approved
-  posted
-  partially_paid
-  paid
-  bad_debt
-  voided
-}
-
-enum enum_ar_invoice_type {
-  standard
-  folio_billing
-  city_ledger
-  banquet_event
-  deposit
-  credit_note
-  debit_note
-}
-
-enum enum_ar_receipt_status {
-  draft
-  submitted
-  approved
-  posted
-  reconciled
-  voided
-}
 
 enum enum_asset_disposal_type {
   sale
@@ -1430,15 +1392,6 @@ enum enum_intercompany_status {
   cancelled
 }
 
-enum enum_payment_method {
-  bank_transfer
-  cheque
-  cash
-  credit_card
-  direct_debit
-  promtpay
-}
-
 enum enum_reconciliation_status {
   unmatched
   matched
@@ -1447,17 +1400,7 @@ enum enum_reconciliation_status {
   disputed
 }
 
-enum enum_tax_invoice_type {
-  input_vat // ภาษีซื้อ (AP)
-  output_vat // ภาษีขาย (AR)
-}
 
-enum enum_tax_status {
-  undue_suspense // ภาษีรอยื่น / ภาษียังไม่ถึงกำหนด
-  claimed // ยื่นภาษีแล้ว (ภ.พ.30)
-  deferred // ขอเลื่อนยื่น (ภายใน 6 เดือน)
-  voided // ยกเลิก
-}
 
 enum enum_wht_condition {
   deducted_at_source // 1 = หัก ณ ที่จ่าย
@@ -1473,19 +1416,96 @@ enum enum_wht_form_type {
   pnd_54 // จ่ายไปต่างประเทศ
 }
 
+// AR document types — mirrors enum_ap_invoice_doc_type (ARIV / ARDN / ARCN / ARDP)
+enum enum_ar_invoice_doc_type {
+  invoice
+  debit_note
+  credit_note
+  deposit
+}
+
+// ⚠ OI-3: FRD lists Draft / Submitted / Approved / Posted / Void; this follows the AP lifecycle
+// (workflow stages live in workflow_* columns, GL posting happens once at `posted`)
+enum enum_ar_invoice_status {
+  draft
+  in_review
+  posted
+  void
+}
+
+// ⚠ OI-5: FRD §3.1 enum has Manual / PMS Folio / Copy; §4 also stamps AI
+enum enum_ar_invoice_source {
+  manual
+  pms_folio
+  copy
+  ai
+}
+
+enum enum_ar_tax_invoice_status {
+  pending
+  confirmed
+  submitted
+}
+
+enum enum_ar_receipt_status {
+  draft
+  in_review
+  posted
+  void
+}
+
+enum enum_ar_receipt_method {
+  bank_transfer
+  cheque
+  cash
+  credit_card
+  promptpay
+}
+
+enum enum_customer_address_type {
+  contact_address
+  mailing_address
+  register_address
+  billing_address
+}
+
 // ==============================================================================
-// 4. DRAFT — models (24) [concept only, not implemented]
+// 4. DRAFT — models (26) [concept only, not implemented]
 // ==============================================================================
 
 // ---- Accounts Receivable (DRAFT) ---------------------------------------------
 
-model tb_customer_group {
+// ⚠ OI-7: no customer master exists in backend-v2 yet. Mirrors tb_vendor / tb_vendor_address.
+model tb_customer {
   doc_version Int     @default(0) @db.Integer
   id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code        String  @db.VarChar(50) // e.g. "CORP", "FIT", "OTA", "GOVT"
-  name        String  @db.VarChar(255)
+  code        String  @db.VarChar // AR code (FRD `ar_code`)
+  name        String  @db.VarChar
   description String? @db.VarChar
-  is_active   Boolean @default(true)
+  note        String? @db.VarChar
+
+  customer_group Json? @default("[]") @db.JsonB // [{id, name}] e.g. CORP / FIT / OTA / GOVT — same shape as tb_vendor.business_type
+
+  registered_name String? @db.VarChar // ชื่อผู้ประกอบการจดทะเบียน ที่พิมพ์บนใบกำกับภาษี
+  tax_no          String? @db.VarChar // เลขประจำตัวผู้เสียภาษี 13 หลัก (ต่างประเทศอาจไม่มี)
+  branch_no       String? @db.VarChar // "00000" = สำนักงานใหญ่
+  tax_profile_id  String? @db.Uuid // default output-tax profile
+  // tax_profile_id -> tb_tax_profile.id  (implemented model; @relation omitted, see header)
+
+  default_currency_id     String? @db.Uuid
+  default_currency_code   String? @db.VarChar(3)
+  credit_term_id          String? @db.Uuid
+  credit_term_name        String? @db.VarChar
+  credit_term_days        Int?    @db.Integer
+  credit_limit            Decimal @default(0) @db.Decimal(20, 5)
+  ar_chart_of_accounts_id String? @db.Uuid // default Dr AR account; falls back to gl_setting
+  // credit_term_id -> tb_credit_term.id ; ar_chart_of_accounts_id -> tb_chart_of_accounts.id  (implemented models)
+
+  pms_account_code String? @db.VarChar // City Ledger account code in the PMS (folio lookup key)
+
+  is_active Boolean? @default(true)
+  info      Json?    @default("{}") @db.JsonB
+  dimension Json?    @default("[]") @db.JsonB
 
   created_at    DateTime? @default(now()) @db.Timestamptz(6)
   created_by_id String?   @db.Uuid
@@ -1494,27 +1514,30 @@ model tb_customer_group {
   deleted_at    DateTime? @db.Timestamptz(6)
   deleted_by_id String?   @db.Uuid
 
-  customers tb_customer[]
+  tb_customer_address tb_customer_address[]
+  tb_ar_invoice       tb_ar_invoice[]
+  tb_ar_receipt       tb_ar_receipt[]
 
-  @@unique([code, deleted_at], map: "cust_grp_code_u")
+  @@unique([code, deleted_at], map: "customer_code_u")
+  @@index([name], map: "customer_name_idx")
+  @@index([tax_no], map: "customer_tax_no_idx")
 }
 
-model tb_customer {
-  doc_version       Int     @default(0) @db.Integer
-  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  customer_code     String  @db.VarChar(50)
-  customer_name_en  String  @db.VarChar(255)
-  customer_name_th  String? @db.VarChar(255)
-  customer_group_id String? @db.Uuid
-  tax_id            String? @db.VarChar(50)
-  branch_no         String? @default("00000") @db.VarChar(10)
-  credit_limit      Decimal @default(0) @db.Decimal(18, 2)
-  credit_term_days  Int     @default(30) @db.Integer
-  address_billing   String? @db.VarChar
-  contact_person    String? @db.VarChar(255)
-  phone             String? @db.VarChar(50)
-  email             String? @db.VarChar(100)
-  is_active         Boolean @default(true)
+model tb_customer_address {
+  doc_version   Int                         @default(0) @db.Integer
+  id            String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id   String                      @db.Uuid
+  address_type  enum_customer_address_type
+  address_line1 String?                     @db.VarChar // บ้านเลขที่ / ถนน / ซอย
+  address_line2 String?                     @db.VarChar // อาคาร / ชั้น
+  sub_district  String?                     @db.VarChar // ตำบล / แขวง
+  district      String?                     @db.VarChar // อำเภอ / เขต
+  city          String?                     @db.VarChar
+  province      String?                     @db.VarChar
+  postal_code   String?                     @db.VarChar
+  country       String?                     @db.VarChar
+  is_active     Boolean?                    @default(true)
+  info          Json?                       @default("{}") @db.JsonB
 
   created_at    DateTime? @default(now()) @db.Timestamptz(6)
   created_by_id String?   @db.Uuid
@@ -1523,54 +1546,88 @@ model tb_customer {
   deleted_at    DateTime? @db.Timestamptz(6)
   deleted_by_id String?   @db.Uuid
 
-  customer_group tb_customer_group? @relation(fields: [customer_group_id], references: [id])
+  tb_customer tb_customer @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  ar_invoices  tb_ar_invoice[]
-  ar_receipts  tb_ar_receipt[]
-  tax_invoices tb_tax_invoice[]
-
-  @@unique([customer_code, deleted_at], map: "cust_code_u")
-  @@index([customer_group_id], map: "cust_grp_idx")
-  @@index([tax_id], map: "cust_tax_id_idx")
+  @@unique([customer_id, address_type, deleted_at], map: "customeraddress_type_u")
+  @@index([customer_id], map: "customeraddress_customer_idx")
 }
 
+// ARIV / ARDN / ARCN / ARDP in one table (FRD ar_invoice_header) — mirrors tb_ap_invoice.
+// ARRC (receipt) is NOT here: see tb_ar_receipt (⚠ OI-4).
 model tb_ar_invoice {
-  doc_version         Int                    @default(0) @db.Integer
-  id                  String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  invoice_no          String                 @db.VarChar(50)
-  invoice_type        enum_ar_invoice_type   @default(standard)
-  status              enum_ar_invoice_status @default(draft)
-  customer_id         String                 @db.Uuid
-  invoice_date        DateTime               @db.Date
-  posting_date        DateTime               @db.Date
-  due_date            DateTime               @db.Date
-  credit_term_days    Int                    @default(30) @db.Integer
-  folio_no            String?                @db.VarChar(50) // PMS Folio No
-  city_ledger_account String?                @db.VarChar(50)
-  description         String?                @db.VarChar
+  doc_version Int    @default(0) @db.Integer
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
-  // Currency & Rates
-  currency_id   String  @db.Uuid
-  exchange_rate Decimal @default(1.000000) @db.Decimal(18, 6)
+  doc_no         String                   @db.VarChar(30) // ARIV{YY}{MM}{0000}, running-code type AR-IV/DN/CN/DP
+  doc_type       enum_ar_invoice_doc_type
+  doc_status     enum_ar_invoice_status   @default(draft) // ⚠ OI-3
+  doc_source     enum_ar_invoice_source   @default(manual)
+  doc_date       DateTime                 @db.Date // FRD input_date = GL date
+  description    String?                  @db.VarChar
+  source_doc_ref String?                  @db.VarChar(100) // external ref (booking / folio batch / copied doc no)
+  is_pms_folio   Boolean                  @default(false) // true = billed from PMS folios, no GL post (PRD §3.1)
 
-  // Foreign Currency Totals
-  foreign_subtotal    Decimal @default(0) @db.Decimal(18, 2)
-  foreign_discount    Decimal @default(0) @db.Decimal(18, 2)
-  foreign_tax_amount  Decimal @default(0) @db.Decimal(18, 2)
-  foreign_grand_total Decimal @default(0) @db.Decimal(18, 2)
+  customer_id      String   @db.Uuid
+  customer_code    String   @db.VarChar
+  customer_name    String   @db.VarChar
+  credit_term_id   String?  @db.Uuid
+  credit_term_name String?  @db.VarChar
+  credit_term_days Int      @default(0) @db.Integer
+  due_date         DateTime @db.Date // doc_date + credit_term_days; aging key
 
-  // Base Currency Totals
-  base_subtotal    Decimal @default(0) @db.Decimal(18, 2)
-  base_discount    Decimal @default(0) @db.Decimal(18, 2)
-  base_tax_amount  Decimal @default(0) @db.Decimal(18, 2)
-  base_grand_total Decimal @default(0) @db.Decimal(18, 2)
+  is_tax_invoice Boolean @default(false) // Tab 2: issue tax invoice on submit → tb_ar_tax_invoice
 
-  // Outstanding
-  outstanding_balance Decimal @default(0) @db.Decimal(18, 2)
+  currency_id        String  @db.Uuid
+  currency_code      String  @db.VarChar(3)
+  exchange_rate      Decimal @default(1) @db.Decimal(15, 5)
+  base_currency_id   String  @db.Uuid
+  base_currency_code String  @db.VarChar(3)
+  // currency_id / base_currency_id -> tb_currency.id  (implemented model)
 
-  journal_voucher_id String? @db.Uuid
+  sub_total_amount         Decimal @default(0) @db.Decimal(20, 5)
+  discount_amount          Decimal @default(0) @db.Decimal(20, 5)
+  net_amount               Decimal @default(0) @db.Decimal(20, 5)
+  vat_amount               Decimal @default(0) @db.Decimal(20, 5) // FRD tax1
+  tax2_amount              Decimal @default(0) @db.Decimal(20, 5) // FRD tax2 (supplementary tax) ⚠ OI-6
+  total_amount             Decimal @default(0) @db.Decimal(20, 5)
+  base_sub_total_amount    Decimal @default(0) @db.Decimal(20, 5)
+  base_discount_amount     Decimal @default(0) @db.Decimal(20, 5)
+  base_net_amount          Decimal @default(0) @db.Decimal(20, 5)
+  base_vat_amount          Decimal @default(0) @db.Decimal(20, 5)
+  base_tax2_amount         Decimal @default(0) @db.Decimal(20, 5)
+  base_total_amount        Decimal @default(0) @db.Decimal(20, 5)
+  is_wht_recorded          Boolean @default(false) // ⚠ OI-6: reference only, WHT is recognized at receipt
+  wht_amount               Decimal @default(0) @db.Decimal(20, 5) // reference only — no GL at invoice
+  outstanding_amount       Decimal @default(0) @db.Decimal(20, 5) // Σ detail.unpaid_amount (FRD unpaid_amount)
+  reference_applied_amount Decimal @default(0) @db.Decimal(20, 5) // Σ deposits applied via tb_ar_invoice_reference
 
-  info          Json?     @default("{}") @db.JsonB
+  gl_jv_id     String?   @db.Uuid // null when is_pms_folio (no GL post)
+  gl_jv_no     String?   @db.VarChar
+  posted_at    DateTime? @db.Timestamptz(6)
+  posted_by_id String?   @db.Uuid
+  // gl_jv_id -> tb_gl_jv_header.id  (implemented model)
+
+  void_at       DateTime? @db.Timestamptz(6)
+  void_by_id    String?   @db.Uuid
+  void_reason   String?   @db.VarChar
+  void_gl_jv_id String?   @db.Uuid
+
+  workflow_id             String?           @db.Uuid
+  workflow_name           String?           @db.VarChar
+  workflow_history        Json?             @default("[]") @db.JsonB
+  workflow_current_stage  String?           @db.VarChar
+  workflow_previous_stage String?           @db.VarChar
+  workflow_next_stage     String?           @db.VarChar
+  user_action             Json?             @db.JsonB
+  last_action             enum_last_action?
+  last_action_at_date     DateTime?         @db.Timestamptz(6)
+  last_action_by_id       String?           @db.Uuid
+  last_action_by_name     String?           @db.VarChar
+
+  attachments Json? @default("[]") @db.JsonB
+  info        Json? @default("{}") @db.JsonB
+  dimension   Json? @default("[]") @db.JsonB
+
   created_at    DateTime? @default(now()) @db.Timestamptz(6)
   created_by_id String?   @db.Uuid
   updated_at    DateTime? @default(now()) @db.Timestamptz(6)
@@ -1578,37 +1635,90 @@ model tb_ar_invoice {
   deleted_at    DateTime? @db.Timestamptz(6)
   deleted_by_id String?   @db.Uuid
 
-  customer        tb_customer         @relation(fields: [customer_id], references: [id])
-  // journal_voucher_id -> tb_gl_jv_header.id  (implemented model; @relation omitted, see header)
+  tb_customer                 tb_customer               @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tb_ar_invoice_detail        tb_ar_invoice_detail[]
+  tb_ar_invoice_reference     tb_ar_invoice_reference[] @relation("ArInvoiceReferences")
+  tb_ar_invoice_referenced_by tb_ar_invoice_reference[] @relation("ArInvoiceReferencedBy")
+  tb_ar_tax_invoice           tb_ar_tax_invoice?
+  tb_ar_receipt_detail        tb_ar_receipt_detail[]
 
-  lines        tb_ar_invoice_line[]
-  allocations  tb_ar_receipt_allocation[]
-  tax_invoices tb_tax_invoice[]
-
-  @@unique([invoice_no, deleted_at], map: "ar_inv_no_u")
-  @@index([customer_id], map: "ar_inv_cust_idx")
-  @@index([due_date], map: "ar_inv_due_idx")
-  @@index([posting_date], map: "ar_inv_posting_idx")
-  @@index([status], map: "ar_inv_status_idx")
+  @@unique([doc_no, deleted_at], map: "arinvoice_doc_no_u")
+  @@index([customer_id, doc_status], map: "arinvoice_customer_status_idx")
+  @@index([doc_date], map: "arinvoice_doc_date_idx")
+  @@index([due_date], map: "arinvoice_due_date_idx")
+  @@index([gl_jv_id], map: "arinvoice_gl_jv_idx")
 }
 
-model tb_ar_invoice_line {
+// Line items (FRD ar_invoice_detail) — mirrors tb_ap_invoice_detail; cr = revenue, dr = AR.
+model tb_ar_invoice_detail {
   doc_version   Int     @default(0) @db.Integer
   id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ar_invoice_id String  @db.Uuid
-  line_number   Int     @db.Integer
-  account_id    String  @db.Uuid // Revenue account
-  department_id String? @db.Uuid // Revenue center / Department
+  sequence_no   Int     @db.Integer
+  group_no      Int     @default(1) @db.Integer // summary-invoice print grouping
   description   String? @db.VarChar
-  quantity      Decimal @default(1.00) @db.Decimal(18, 4)
-  unit_price    Decimal @default(0) @db.Decimal(18, 4)
 
-  foreign_amount Decimal @default(0) @db.Decimal(18, 2)
-  base_amount    Decimal @default(0) @db.Decimal(18, 2)
+  // Section 0 — booking & reference
+  reference_info String?   @db.VarChar // 2-line folio / booking / guest text
+  date_from      DateTime? @db.Date
+  date_to        DateTime? @db.Date
+  is_pms_folio   Boolean   @default(false)
+  folio_no       String?   @db.VarChar(50)
+  folio_date     DateTime? @db.Date
+  folio_amount   Decimal?  @db.Decimal(20, 5) // folio balance at import; settle = net_amount (0 < settle ≤ folio_amount, ERR_AR_002)
 
-  tax_profile_id String? @db.Uuid
-  tax_rate       Decimal @default(0) @db.Decimal(5, 2)
-  tax_amount     Decimal @default(0) @db.Decimal(18, 2)
+  unit_id      String? @db.Uuid
+  unit_name    String? @db.VarChar
+  quantity     Decimal @default(1) @db.Decimal(20, 5)
+  unit_price   Decimal @default(0) @db.Decimal(20, 5)
+
+  // Section 1 — discount
+  sub_total_amount     Decimal @default(0) @db.Decimal(20, 5)
+  discount_pct         Decimal @default(0) @db.Decimal(15, 5)
+  discount_amount      Decimal @default(0) @db.Decimal(20, 5)
+  discount_is_override Boolean @default(false)
+  net_amount           Decimal @default(0) @db.Decimal(20, 5)
+
+  // Section 2 — revenue (Cr)
+  cr_chart_of_accounts_id String  @db.Uuid
+  cr_account_code         String? @db.VarChar
+  cr_cost_center_id       String  @db.Uuid // USALI department, required for revenue
+  cr_cost_center_code     String? @db.VarChar
+
+  // Section 3 — output tax 1 (VAT)
+  vat_tax_profile_id       String? @db.Uuid
+  vat_rate                 Decimal @default(0) @db.Decimal(15, 5)
+  vat_amount               Decimal @default(0) @db.Decimal(20, 5)
+  vat_is_override          Boolean @default(false)
+  vat_chart_of_accounts_id String? @db.Uuid // Output VAT Pending
+  vat_cost_center_id       String? @db.Uuid
+
+  // Section 3 — tax 2 (supplementary tax or WHT) ⚠ OI-6
+  tax2_tax_profile_id       String? @db.Uuid
+  tax2_rate                 Decimal @default(0) @db.Decimal(15, 5)
+  tax2_amount               Decimal @default(0) @db.Decimal(20, 5)
+  tax2_is_override          Boolean @default(false)
+  tax2_chart_of_accounts_id String? @db.Uuid
+  tax2_cost_center_id       String? @db.Uuid
+
+  // Section 4 — accounts receivable (Dr)
+  dr_chart_of_accounts_id String  @db.Uuid
+  dr_account_code         String? @db.VarChar
+  dr_cost_center_id       String? @db.Uuid
+
+  total_amount          Decimal @default(0) @db.Decimal(20, 5) // net + vat + tax2
+  unpaid_amount         Decimal @default(0) @db.Decimal(20, 5)
+  base_sub_total_amount Decimal @default(0) @db.Decimal(20, 5)
+  base_discount_amount  Decimal @default(0) @db.Decimal(20, 5)
+  base_net_amount       Decimal @default(0) @db.Decimal(20, 5)
+  base_vat_amount       Decimal @default(0) @db.Decimal(20, 5)
+  base_tax2_amount      Decimal @default(0) @db.Decimal(20, 5)
+  base_total_amount     Decimal @default(0) @db.Decimal(20, 5)
+  base_unpaid_amount    Decimal @default(0) @db.Decimal(20, 5)
+  // *_chart_of_accounts_id -> tb_chart_of_accounts.id ; *_cost_center_id -> tb_cost_center.id ; *_tax_profile_id -> tb_tax_profile.id  (implemented models)
+
+  info      Json? @default("{}") @db.JsonB
+  dimension Json? @default("[]") @db.JsonB
 
   created_at    DateTime? @default(now()) @db.Timestamptz(6)
   created_by_id String?   @db.Uuid
@@ -1617,54 +1727,170 @@ model tb_ar_invoice_line {
   deleted_at    DateTime? @db.Timestamptz(6)
   deleted_by_id String?   @db.Uuid
 
-  ar_invoice tb_ar_invoice        @relation(fields: [ar_invoice_id], references: [id], onDelete: Cascade)
-  // account_id -> tb_chart_of_accounts.id  (implemented model; @relation omitted, see header)
+  tb_ar_invoice                  tb_ar_invoice                    @relation(fields: [ar_invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tb_ar_invoice_detail_dimension tb_ar_invoice_detail_dimension[]
+  tb_ar_receipt_detail           tb_ar_receipt_detail[]
 
-  line_dimensions tb_ar_invoice_line_dimension[]
-
-  @@index([ar_invoice_id], map: "ar_line_inv_idx")
-  @@index([account_id], map: "ar_line_acct_idx")
-  @@index([department_id], map: "ar_line_dept_idx")
+  @@unique([ar_invoice_id, sequence_no, deleted_at], map: "arinvoicedetail_seq_u")
+  @@index([ar_invoice_id], map: "arinvoicedetail_invoice_idx")
+  @@index([folio_no], map: "arinvoicedetail_folio_idx")
 }
 
-model tb_ar_invoice_line_dimension {
-  id                 String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ar_invoice_line_id String @db.Uuid
-  dimension_value_id String @db.Uuid
+// 6 analysis dimensions per line (FRD dim_market … dim_channel) — data-driven like AP
+model tb_ar_invoice_detail_dimension {
+  id                    String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_invoice_detail_id  String @db.Uuid
+  gl_dimension_id       String @db.Uuid
+  gl_dimension_value_id String @db.Uuid
+  dimension_code        String @db.VarChar(20)
+  value_code            String @db.VarChar(30)
+  // gl_dimension_id -> tb_gl_dimension.id ; gl_dimension_value_id -> tb_gl_dimension_value.id  (implemented models)
 
-  ar_invoice_line tb_ar_invoice_line @relation(fields: [ar_invoice_line_id], references: [id], onDelete: Cascade)
-  // dimension_value_id -> tb_gl_dimension_value.id  (implemented model; @relation omitted, see header)
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
 
-  @@unique([ar_invoice_line_id, dimension_value_id], map: "ar_line_dim_u")
-  @@index([dimension_value_id], map: "ar_line_dim_val_idx")
+  tb_ar_invoice_detail tb_ar_invoice_detail @relation(fields: [ar_invoice_detail_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([ar_invoice_detail_id, gl_dimension_id], map: "arinvoicedetaildimension_u")
 }
 
+// Tab 3 Doc Reference (FRD ar_document_reference): deposits (and per FRD §5.3 CN/DN ⚠ OI-5)
+// applied to an ARIV. Realized FX per PRD §4.2/4.3 (⚠ OI-1 sign, ⚠ OI-2 TFRIC 22).
+model tb_ar_invoice_reference {
+  id                           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_invoice_id                String                   @db.Uuid
+  ref_ar_invoice_id            String                   @db.Uuid
+  ref_doc_type                 enum_ar_invoice_doc_type
+  applied_net_amount           Decimal                  @default(0) @db.Decimal(20, 5)
+  applied_vat_amount           Decimal                  @default(0) @db.Decimal(20, 5)
+  applied_amount               Decimal                  @default(0) @db.Decimal(20, 5) // net + vat = total offset
+  base_applied_at_invoice_rate Decimal                  @default(0) @db.Decimal(20, 5)
+  base_applied_at_ref_rate     Decimal                  @default(0) @db.Decimal(20, 5)
+  realized_fx_amount           Decimal                  @default(0) @db.Decimal(20, 5) // > 0 = loss (Dr), < 0 = gain (Cr)
+  remarks                      String?                  @db.VarChar
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+
+  tb_ar_invoice     tb_ar_invoice @relation("ArInvoiceReferences", fields: [ar_invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tb_ref_ar_invoice tb_ar_invoice @relation("ArInvoiceReferencedBy", fields: [ref_ar_invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([ar_invoice_id, ref_ar_invoice_id], map: "arinvoicereference_u")
+  @@index([ref_ar_invoice_id], map: "arinvoicereference_ref_idx")
+}
+
+// Output tax register (FRD ar_tax_invoice) — mirrors tb_ap_invoice_tax. One row per issuing
+// document: an AR document (TXIV/TXDN/TXCN/TXDP) or a receipt (TXRC ⚠ OI-5); exactly one FK set.
+model tb_ar_tax_invoice {
+  doc_version      Int                         @default(0) @db.Integer
+  id               String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_invoice_id    String?                     @unique(map: "artaxinvoice_invoice_u") @db.Uuid
+  ar_receipt_id    String?                     @unique(map: "artaxinvoice_receipt_u") @db.Uuid
+  tax_prefix       String                      @db.VarChar(10) // TXIV / TXDN / TXCN / TXDP / TXRC
+  tax_invoice_no   String                      @db.VarChar(30) // generated on submit, never on save draft (ERR_AR_006 on collision)
+  tax_invoice_date DateTime                    @db.Date
+  filing_month     Int?                        @db.Integer // FRD tax_period MM/YYYY
+  filing_year      Int?                        @db.Integer
+  tax_status       enum_ar_tax_invoice_status  @default(pending)
+
+  customer_registered_name String  @db.VarChar
+  customer_tax_no          String? @db.VarChar(13)
+  customer_branch_no       String? @db.VarChar(5)
+  address_line1            String? @db.VarChar
+  address_line2            String? @db.VarChar
+  province                 String? @db.VarChar
+  postal_code              String? @db.VarChar(10)
+
+  base_amount  Decimal @default(0) @db.Decimal(20, 5) // THB
+  vat_rate     Decimal @default(7) @db.Decimal(15, 5)
+  vat_amount   Decimal @default(0) @db.Decimal(20, 5) // THB
+  total_amount Decimal @default(0) @db.Decimal(20, 5) // THB
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  tb_ar_invoice tb_ar_invoice? @relation(fields: [ar_invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tb_ar_receipt tb_ar_receipt? @relation(fields: [ar_receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([tax_invoice_no, deleted_at], map: "artaxinvoice_no_u")
+  @@index([tax_invoice_date], map: "artaxinvoice_date_idx")
+  @@index([filing_year, filing_month], map: "artaxinvoice_period_idx")
+}
+
+// ⚠ OI-4: Receipt (ARRC) as its own document — mirrors tb_ap_payment. Created from an invoice's
+// "Get Receipt" or standalone; allocates to posted AR document lines.
 model tb_ar_receipt {
-  doc_version     Int                    @default(0) @db.Integer
-  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  receipt_no      String                 @db.VarChar(50)
-  receipt_date    DateTime               @db.Date
-  posting_date    DateTime               @db.Date
-  customer_id     String                 @db.Uuid
-  bank_account_id String?                @db.Uuid
-  payment_method  enum_payment_method    @default(bank_transfer)
-  status          enum_ar_receipt_status @default(draft)
-  cheque_no       String?                @db.VarChar(50)
-  reference_no    String?                @db.VarChar(100)
-  description     String?                @db.VarChar
+  doc_version Int    @default(0) @db.Integer
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
-  // Currency & Rate
-  currency_id   String  @db.Uuid
-  exchange_rate Decimal @default(1.000000) @db.Decimal(18, 6)
+  doc_no        String                 @db.VarChar(30) // ARRC{YY}{MM}{0000}
+  doc_status    enum_ar_receipt_status @default(draft)
+  receipt_date  DateTime               @db.Date // GL date
+  received_date DateTime?              @db.Date // value date on bank statement
+  description   String?                @db.VarChar
+  reference_no  String?                @db.VarChar(100)
 
-  // Totals
-  foreign_amount       Decimal @default(0) @db.Decimal(18, 2)
-  base_amount          Decimal @default(0) @db.Decimal(18, 2)
-  wht_deducted_by_cust Decimal @default(0) @db.Decimal(18, 2) // หัก ณ ที่จ่าย ที่ลูกค้าหักไว้
+  customer_id   String  @db.Uuid
+  customer_code String  @db.VarChar
+  customer_name String  @db.VarChar
+  payer_name    String? @db.VarChar // name on cheque / transfer when not the customer
 
-  journal_voucher_id String? @db.Uuid
+  bank_account_id   String                  @db.Uuid
+  bank_account_code String                  @db.VarChar(20)
+  bank_account_name String                  @db.VarChar
+  receipt_method    enum_ar_receipt_method  @default(bank_transfer)
+  cheque_no         String?                 @db.VarChar(50)
+  cheque_date       DateTime?               @db.Date
+  // bank_account_id -> tb_bank_account.id  (implemented model)
 
-  info          Json?     @default("{}") @db.JsonB
+  is_tax_invoice Boolean @default(false) // TXRC issued at receipt (services) → tb_ar_tax_invoice
+
+  currency_id        String  @db.Uuid
+  currency_code      String  @db.VarChar(3)
+  exchange_rate      Decimal @default(1) @db.Decimal(15, 5)
+  base_currency_id   String  @db.Uuid
+  base_currency_code String  @db.VarChar(3)
+
+  total_applied_amount      Decimal @default(0) @db.Decimal(20, 5) // Σ detail.applied_amount
+  total_wht_amount          Decimal @default(0) @db.Decimal(20, 5) // WHT deducted by customer (50 ทวิ received)
+  total_charge_amount       Decimal @default(0) @db.Decimal(20, 5) // bank charges / short payment written off
+  net_received_amount       Decimal @default(0) @db.Decimal(20, 5) // applied − wht − charge = bank Dr
+  base_total_applied_amount Decimal @default(0) @db.Decimal(20, 5)
+  base_total_wht_amount     Decimal @default(0) @db.Decimal(20, 5)
+  base_total_charge_amount  Decimal @default(0) @db.Decimal(20, 5)
+  base_net_received_amount  Decimal @default(0) @db.Decimal(20, 5)
+  realized_fx_amount        Decimal @default(0) @db.Decimal(20, 5) // base@receipt − base@invoice; > 0 = gain (Cr)
+
+  gl_jv_id      String?   @db.Uuid
+  gl_jv_no      String?   @db.VarChar
+  posted_at     DateTime? @db.Timestamptz(6)
+  posted_by_id  String?   @db.Uuid
+  void_at       DateTime? @db.Timestamptz(6)
+  void_by_id    String?   @db.Uuid
+  void_reason   String?   @db.VarChar
+  void_gl_jv_id String?   @db.Uuid
+  // gl_jv_id -> tb_gl_jv_header.id  (implemented model)
+
+  workflow_id             String?           @db.Uuid
+  workflow_name           String?           @db.VarChar
+  workflow_history        Json?             @default("[]") @db.JsonB
+  workflow_current_stage  String?           @db.VarChar
+  workflow_previous_stage String?           @db.VarChar
+  workflow_next_stage     String?           @db.VarChar
+  user_action             Json?             @db.JsonB
+  last_action             enum_last_action?
+  last_action_at_date     DateTime?         @db.Timestamptz(6)
+  last_action_by_id       String?           @db.Uuid
+  last_action_by_name     String?           @db.VarChar
+
+  attachments Json? @default("[]") @db.JsonB
+  info        Json? @default("{}") @db.JsonB
+  dimension   Json? @default("[]") @db.JsonB
+
   created_at    DateTime? @default(now()) @db.Timestamptz(6)
   created_by_id String?   @db.Uuid
   updated_at    DateTime? @default(now()) @db.Timestamptz(6)
@@ -1672,38 +1898,64 @@ model tb_ar_receipt {
   deleted_at    DateTime? @db.Timestamptz(6)
   deleted_by_id String?   @db.Uuid
 
-  customer        tb_customer         @relation(fields: [customer_id], references: [id])
-  // journal_voucher_id -> tb_gl_jv_header.id  (implemented model; @relation omitted, see header)
-  // bank_account_id -> tb_bank_account.id  (implemented model; @relation omitted, see header)
+  tb_customer                tb_customer                  @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tb_ar_receipt_detail       tb_ar_receipt_detail[]
+  tb_ar_receipt_wht          tb_ar_receipt_wht[]
+  tb_ar_tax_invoice          tb_ar_tax_invoice?
+  tb_bank_reconciliation_item tb_bank_reconciliation_item[]
 
-  allocations          tb_ar_receipt_allocation[]
-  reconciliation_items tb_bank_reconciliation_item[]
-
-  @@unique([receipt_no, deleted_at], map: "ar_rec_no_u")
-  @@index([customer_id], map: "ar_rec_cust_idx")
-  @@index([receipt_date], map: "ar_rec_date_idx")
-  @@index([status], map: "ar_rec_status_idx")
+  @@unique([doc_no, deleted_at], map: "arreceipt_doc_no_u")
+  @@index([customer_id, doc_status], map: "arreceipt_customer_status_idx")
+  @@index([receipt_date], map: "arreceipt_date_idx")
 }
 
-model tb_ar_receipt_allocation {
-  doc_version       Int     @default(0) @db.Integer
-  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ar_receipt_id     String  @db.Uuid
-  ar_invoice_id     String  @db.Uuid
-  allocated_foreign Decimal @db.Decimal(18, 2)
-  allocated_base    Decimal @db.Decimal(18, 2)
-  discount_given    Decimal @default(0) @db.Decimal(18, 2)
-  realized_fx_gain  Decimal @default(0) @db.Decimal(18, 2)
-  realized_fx_loss  Decimal @default(0) @db.Decimal(18, 2)
+// Line-level allocation — mirrors tb_ap_payment_detail (credit_note lines carry a negative amount)
+model tb_ar_receipt_detail {
+  id                           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_receipt_id                String                   @db.Uuid
+  ar_invoice_id                String                   @db.Uuid
+  ar_invoice_detail_id         String                   @db.Uuid
+  doc_type                     enum_ar_invoice_doc_type
+  applied_amount               Decimal                  @default(0) @db.Decimal(20, 5)
+  invoice_exchange_rate        Decimal                  @default(1) @db.Decimal(15, 5)
+  base_applied_at_invoice_rate Decimal                  @default(0) @db.Decimal(20, 5)
+  base_applied_at_receipt_rate Decimal                  @default(0) @db.Decimal(20, 5)
+  realized_fx_amount           Decimal                  @default(0) @db.Decimal(20, 5)
 
   created_at    DateTime? @default(now()) @db.Timestamptz(6)
   created_by_id String?   @db.Uuid
 
-  ar_receipt tb_ar_receipt @relation(fields: [ar_receipt_id], references: [id], onDelete: Cascade)
-  ar_invoice tb_ar_invoice @relation(fields: [ar_invoice_id], references: [id])
+  tb_ar_receipt        tb_ar_receipt        @relation(fields: [ar_receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tb_ar_invoice        tb_ar_invoice        @relation(fields: [ar_invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tb_ar_invoice_detail tb_ar_invoice_detail @relation(fields: [ar_invoice_detail_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@unique([ar_receipt_id, ar_invoice_id], map: "ar_alloc_rec_inv_u")
-  @@index([ar_invoice_id], map: "ar_alloc_inv_idx")
+  @@unique([ar_receipt_id, ar_invoice_detail_id], map: "arreceiptdetail_u")
+  @@index([ar_invoice_detail_id], map: "arreceiptdetail_invoice_detail_idx")
+}
+
+// WHT certificate (50 ทวิ) received from the customer — mirrors tb_ap_payment_wht; posts Dr WHT receivable
+model tb_ar_receipt_wht {
+  id                   String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_receipt_id        String                         @db.Uuid
+  wht_certificate_no   String?                        @db.VarChar(50) // customer's certificate number
+  wht_certificate_date DateTime?                      @db.Date
+  wht_tax_profile_id   String?                        @db.Uuid
+  wht_tax_profile_name String?                        @db.VarChar
+  pnd_form             enum_tax_profile_wht_pnd_form?
+  income_type          String?                        @db.VarChar
+  base_amount          Decimal                        @default(0) @db.Decimal(20, 5)
+  wht_rate             Decimal                        @default(0) @db.Decimal(15, 5)
+  wht_amount           Decimal                        @default(0) @db.Decimal(20, 5)
+  is_override          Boolean                        @default(false)
+  chart_of_accounts_id String                         @db.Uuid // WHT receivable (gl_setting.wht_receivable_account_id)
+  // wht_tax_profile_id -> tb_tax_profile.id ; chart_of_accounts_id -> tb_chart_of_accounts.id  (implemented models)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+
+  tb_ar_receipt tb_ar_receipt @relation(fields: [ar_receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([ar_receipt_id], map: "arreceiptwht_receipt_idx")
 }
 
 // ---- Cash & Bank (DRAFT) -----------------------------------------------------
@@ -2022,49 +2274,6 @@ model tb_asset_disposal {
 }
 
 // ---- Tax (DRAFT) -------------------------------------------------------------
-
-model tb_tax_invoice {
-  doc_version         Int                   @default(0) @db.Integer
-  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tax_invoice_type    enum_tax_invoice_type // INPUT_VAT (ภ.พ.30 ซื้อ) or OUTPUT_VAT (ภ.พ.30 ขาย)
-  status              enum_tax_status       @default(claimed)
-  tax_invoice_number  String                @db.VarChar(100) // Official Tax Invoice No
-  tax_invoice_date    DateTime              @db.Date
-  filing_period_month Int                   @db.Integer // e.g. 1 to 12
-  filing_period_year  Int                   @db.Integer // e.g. 2026
-
-  // Counterparty Details
-  counterparty_name      String @db.VarChar(255)
-  counterparty_tax_id    String @db.VarChar(50)
-  counterparty_branch_no String @default("00000") @db.VarChar(10) // 00000 = Head Office
-
-  // Amounts
-  base_amount Decimal @db.Decimal(18, 2) // Base for VAT
-  tax_rate    Decimal @default(7.00) @db.Decimal(5, 2)
-  tax_amount  Decimal @db.Decimal(18, 2)
-
-  // Document Lineage
-  ap_invoice_id      String? @db.Uuid
-  ar_invoice_id      String? @db.Uuid
-  customer_id        String? @db.Uuid
-  journal_voucher_id String? @db.Uuid
-
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-  created_by_id String?   @db.Uuid
-  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
-  updated_by_id String?   @db.Uuid
-  deleted_at    DateTime? @db.Timestamptz(6)
-  deleted_by_id String?   @db.Uuid
-
-  // ap_invoice_id -> tb_ap_invoice.id  (implemented model; @relation omitted, see header)
-  ar_invoice      tb_ar_invoice?      @relation(fields: [ar_invoice_id], references: [id])
-  customer        tb_customer?        @relation(fields: [customer_id], references: [id])
-  // journal_voucher_id -> tb_gl_jv_header.id  (implemented model; @relation omitted, see header)
-
-  @@index([tax_invoice_type, filing_period_year, filing_period_month], map: "tax_inv_period_idx")
-  @@index([counterparty_tax_id], map: "tax_inv_counterparty_idx")
-  @@index([tax_invoice_number], map: "tax_inv_number_idx")
-}
 
 model tb_wht_certificate {
   doc_version         Int                @default(0) @db.Integer
