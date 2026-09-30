@@ -39,7 +39,7 @@ Carmen ERP Platform
 |---|--------|------|--------|-----|
 | 1 | General Ledger | GL | **Implemented** — `micro-business/src/gl` | [GL JV Fast Entry FRD](../Accounting-docs/GL/Journal%20Voucher/carmen_cloud_erp_functional_requirement_document_frd.md) |
 | 2 | Accounts Payable | AP | **Implemented** — `micro-business/src/ap` (backend-v2 PR #671) | [AP Module FRD v4.5.06](../Accounting-docs/AP/Invoice/carmen_cloud_erp_ap_module_functional_requirement_document_frd.md) |
-| 3 | Accounts Receivable | AR | **Schema only** — 10 tables in the tenant schema (migration `accounting_ar_tables`, backend-v2 PR #701), no service yet | [PRD-module-ar.md](docs/PRD-module-ar.md) · [schema spec](docs/superpowers/specs/2026-09-30-accounting-ar-schema-design.md) |
+| 3 | Accounts Receivable | AR | **Customer + Invoice/DN/CN** — customer master and ARIV/ARDN/ARCN (GL post, tax invoice at post, CN netting) in `micro-business` (backend-v2 PR #704); ARDP, receipts and PMS folio still schema-only | [PRD-module-ar.md](docs/PRD-module-ar.md) · [schema spec](docs/superpowers/specs/2026-09-30-accounting-ar-schema-design.md) · [service spec](docs/superpowers/specs/2026-10-01-accounting-ar-invoice-service-design.md) |
 | 4 | Cash & Bank Management | CB | **New** | [PRD-module-cash-bank.md](docs/PRD-module-cash-bank.md) |
 | 5 | Fixed Assets | FA | **New** | [PRD-module-fa.md](docs/PRD-module-fa.md) |
 | 6 | Budget Control | BC | **New** | [PRD-module-budget.md](docs/PRD-module-budget.md) |
