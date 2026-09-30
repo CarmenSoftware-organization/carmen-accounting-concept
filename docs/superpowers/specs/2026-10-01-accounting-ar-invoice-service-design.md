@@ -134,7 +134,8 @@ net_amount       = sub_total − discount
 vat_amount       = vat_is_override  ? round(ค่าที่ส่งมา) : round(net × vat_rate / 100)
 tax2_amount      = tax2_is_override ? round(ค่าที่ส่งมา) : round(net × tax2_rate / 100)
 total_amount     = net + vat + tax2
-base_x           = round(x × exchange_rate)  สำหรับ sub_total, discount, net, vat, tax2
+base_x           = round(x × exchange_rate)  สำหรับ sub_total, discount, vat, tax2
+base_net         = base_sub_total − base_discount   (แบบ AP)
 base_total       = base_net + base_vat + base_tax2
 ```
 
