@@ -54,7 +54,7 @@ apps/backend-gateway/src/
 ├── application/ar-invoice/      ← ใหม่ (แบบ application/ap-invoice)
 └── config/config_customers/     ← ใหม่ (แบบ config/config_vendors)
 packages/
-├── rpc-contract/src/contracts/  ← customer, ar-invoice
+├── rpc-contract/src/contracts/  ← customers, ar-invoice
 ├── error-catalog/src/catalog.ts ← CUSTOMER_*, AR_*
 └── prisma-shared-schema-tenant/prisma/migrations/<ts>_accounting_ar_service_enums/
 ```
@@ -79,7 +79,7 @@ packages/
 
 ## 5. Customer master
 
-**ตำแหน่ง:** `master/customers/` · gateway `config_customers` route `api/config/:bu_code/customers` (`GET /`, `GET /:customer_id`, `POST /`, `PUT /:customer_id`, `DELETE /:customer_id`) · RPC `customer`: find-all, find-one, find-all-by-id, create, update, delete
+**ตำแหน่ง:** `master/customers/` · gateway `config_customers` route `api/config/:bu_code/customers` (`GET /`, `GET /:customer_id`, `POST /`, `PUT /:customer_id`, `DELETE /:customer_id`) · RPC `customers` (พหูพจน์ตาม `vendors`): find-all, find-one, find-all-by-id, create, update, delete
 
 **กฎ**
 
@@ -91,7 +91,7 @@ packages/
 - delete = soft delete + `is_active = false`; ถ้ามี `tb_ar_invoice` ที่ `doc_status <> void` และไม่ถูกลบอ้างถึง → `CUSTOMER_IN_USE` (เลิกใช้ให้ปิด `is_active`)
 - find-all: paginate / search (code, name, tax_no) / filter `is_active` แบบ vendor
 - permission: pattern เดียวกับ `config_vendors` resource `config.customer`
-- activity registry `entityName: 'customer'` (create/update/delete)
+- activity registry `entityName: 'tb_customer'` (customers.create/update/delete)
 
 ---
 
@@ -179,7 +179,7 @@ base_total       = base_net + base_vat + base_tax2
 - ตรวจตอน create/update/submit และตรวจซ้ำหลัง lock ตอน post
 - ตอน post: `SELECT ... FOR UPDATE` CN → `reference_applied_amount += applied`, ลด `unpaid` บรรทัด CN ตาม plan, คำนวณ `outstanding_amount` CN ใหม่; ARIV ลด unpaid ตามลำดับบรรทัด; เก็บ `base_applied_at_invoice_rate` / `base_applied_at_ref_rate`; `realized_fx_amount = 0`
 - GL: ไม่มีบรรทัดตัดยอด แต่เพราะแต่ละฝั่งหักยอดฐานที่ปัดทีละส่วน ยอดฐานที่ลด `I` (ARIV) กับ `C` (CN) อาจต่างกันระดับสตางค์ AR เป็นบัญชีด้านเดบิตและ CN มียอดด้านเครดิต ยอดเดบิตสุทธิของ AR ใน subledger จึงขยับ `C − I` ให้ลงคู่บรรทัดสกุลฐาน (rate 1) ต่อ reference: `diff = C − I > 0` → Dr AR (บัญชี/cc ของบรรทัด CN) / Cr `realized_fx_gain_account_id`; `diff < 0` → Cr AR / Dr `realized_fx_loss_account_id`; `diff = 0` → ไม่ลง (เครื่องหมายกลับกับ AP) บัญชี FX ต้องมีเฉพาะด้านที่ใช้ ไม่งั้น `GL_SETTING_ACCOUNT_MISSING`
-- `reference-candidates(customer_id, currency_id, exclude_invoice_id?)` คืน ARCN ที่ยอดที่อ้างได้ > 0
+- `reference-candidates(id)` (ตาม AP) คืน ARCN ของลูกค้า + สกุล + rate เดียวกับ ARIV `id` ที่ยอดที่อ้างได้ > 0
 
 ---
 
@@ -221,14 +221,14 @@ base_total       = base_net + base_vat + base_tax2
 
 | contract | actions |
 |---|---|
-| `customer` | find-all, find-one, find-all-by-id, create, update, delete |
+| `customers` | find-all, find-one, find-all-by-id, create, update, delete |
 | `ar-invoice` | find-all, find-one, create, update, delete, submit, approve, reject, review, void, reference-candidates |
 
 `'<service>.<kebab-action>'` → `bun run gen:rpc-contract`; `bun run audit:tcp-drift` ต้องผ่าน
 
 ### 12.2 REST
 
-- `api/:bu_code/ar-invoice`: `GET /`, `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id`, `POST /:id/submit|approve|reject|review|void`, `GET /reference-candidates`
+- `api/:bu_code/ar-invoice`: `GET /`, `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id`, `POST /:id/submit|approve|reject|review|void`, `GET /:id/reference-candidates`
 - payload มี `user_id`, `bu_code`, `version`; action ที่เปลี่ยนสถานะส่ง `doc_version`
 - Swagger DTO ด้วย Zod + `createZodDto`, enum `z.nativeEnum` + `@ApiProperty({ enum, enumName })`
 
@@ -259,7 +259,7 @@ base_total       = base_net + base_vat + base_tax2
 - `doc_version` optimistic ทุก update/action (`where: { id, doc_version }` ไม่เจอ → `AR_INVOICE_IMMUTABLE`)
 - post อยู่ใน `$transaction` เดียว (§6); lock ARIV + CN ก่อน validate reference
 - running number (เอกสารและใบกำกับ): lookup last no + insert ใน tx เดียว; unique index เป็น guard; retry 1 ครั้ง
-- activity registry `entityName: 'ar_invoice'` (create/update/delete/submit/approve/reject/review/void) — ตาราง AR อยู่ใน `excludeModels` จึงต้องลงทะเบียน ไม่เช่นนั้นไม่มี trail
+- activity registry `entityName: 'tb_ar_invoice'` + `entity-snapshot.ts` (create/update/delete/submit/approve/reject/review/void) — ตาราง AR อยู่ใน `excludeModels` จึงต้องลงทะเบียน ไม่เช่นนั้นไม่มี trail
 - ทุก handler ผ่าน `this.ctx.run(payload, ...)` (`audit:tenant-context` ต้องผ่าน)
 - `apps/micro-business/CLAUDE.md`: แก้ bullet `tb_customer*` / `tb_ar_*` (ไม่ใช่ schema-only แล้ว) + รายการ `gl_setting` key ที่ AR ต้องใช้
 
