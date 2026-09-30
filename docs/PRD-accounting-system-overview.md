@@ -468,7 +468,8 @@ The following master data entities are **prerequisites** for the Accounting Syst
 |----------|----------|----------------|
 | System Relations PRD | `../PRD-SYSTEM-RELATIONS.md` | 2026-08-06 |
 | AP Invoice FRD | `../Accounting-docs/AP/Invoice/` | v4.5.06 (New Concept FRD) |
-| AP Payment Approval Mockup | `../Accounting-docs/AP/Payment Approval/` | v2.16 (New Concept UI) |
+| AP Payment FRD | `../Accounting-docs/AP/Payment/` | v2.16 (New Concept FRD) — gap review: [reviews/2026-09-30-ap-payment-frd-v2.16-gap.md](./reviews/2026-09-30-ap-payment-frd-v2.16-gap.md) |
+| AP Payment Mockup | `../Accounting-docs/AP/Payment/` | v2.16 (New Concept UI) |
 | AP Dashboard Mockup | `../Accounting-docs/AP/Dashboard/` | v4.4.4 (New Concept UI) |
 | GL JV Fast Entry FRD | `../Accounting-docs/GL/Journal Voucher/` | V2.14 (New Concept FRD) |
 | GL Module Sitemap Mockup | `../Accounting-docs/GL/` | New Concept UI |
