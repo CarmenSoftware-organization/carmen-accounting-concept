@@ -39,7 +39,7 @@ Carmen ERP Platform
 |---|--------|------|--------|-----|
 | 1 | General Ledger | GL | **Implemented** — `micro-business/src/gl` | [GL JV Fast Entry FRD](../Accounting-docs/GL/Journal%20Voucher/carmen_cloud_erp_functional_requirement_document_frd.md) |
 | 2 | Accounts Payable | AP | **Implemented** — `micro-business/src/ap` (backend-v2 PR #671) | [AP Module FRD v4.5.06](../Accounting-docs/AP/Invoice/carmen_cloud_erp_ap_module_functional_requirement_document_frd.md) |
-| 3 | Accounts Receivable | AR | **New** | [PRD-module-ar.md](docs/PRD-module-ar.md) |
+| 3 | Accounts Receivable | AR | **Schema only** — 10 tables in the tenant schema (migration `accounting_ar_tables`, backend-v2 PR #701), no service yet | [PRD-module-ar.md](docs/PRD-module-ar.md) · [schema spec](docs/superpowers/specs/2026-09-30-accounting-ar-schema-design.md) |
 | 4 | Cash & Bank Management | CB | **New** | [PRD-module-cash-bank.md](docs/PRD-module-cash-bank.md) |
 | 5 | Fixed Assets | FA | **New** | [PRD-module-fa.md](docs/PRD-module-fa.md) |
 | 6 | Budget Control | BC | **New** | [PRD-module-budget.md](docs/PRD-module-budget.md) |
@@ -87,7 +87,7 @@ The **authoritative schema** is the tenant Prisma schema in `carmen-turborepo-ba
 - **Master data**: `tb_bank_account`; `tb_tax_profile` gains `tax_type`/WHT fields; `tb_vendor` gains AP defaults
 - Migration: `20260923060040_accounting_foundation_ap`
 
-[prisma/schema.prisma](prisma/schema.prisma) in this repo is a **hybrid copy** (updated 2026-09-30): sections 1–2 are the 21 enums and 32 accounting models copied verbatim from the tenant schema at backend-v2 `b80024588` (each block cites its source line range); sections 3–4 are the **concept drafts** for modules not yet built (AR, Cash & Bank, FA, Tax, Inter-company). Draft models reference implemented tables by `*_id` + comment, not `@relation`. Draft GL/AP/dimension/period/bank/budget tables that the implementation superseded were removed (mapping in the file header). The file is documentation and is not compiled.
+[prisma/schema.prisma](prisma/schema.prisma) in this repo is a **hybrid copy** (updated 2026-09-30): sections 1–2 are the 28 enums and 42 accounting models copied verbatim from the tenant schema at backend-v2 `32c0fbd29` (each block cites its source line range); sections 3–4 are the **concept drafts** for modules not yet built (Cash & Bank, FA, Tax, Inter-company). Draft models reference implemented tables by `*_id` + comment, not `@relation`. Draft GL/AP/dimension/period/bank/budget tables that the implementation superseded were removed (mapping in the file header). The file is documentation and is not compiled.
 
 ## Documentation Structure
 
@@ -95,7 +95,7 @@ The **authoritative schema** is the tenant Prisma schema in `carmen-turborepo-ba
 carmen-accounting-concept/
 ├── README.md                              ← You are here
 ├── prisma/
-│   └── schema.prisma                      ← Implemented extract (backend-v2 @ b80024588) + drafts for unbuilt modules
+│   └── schema.prisma                      ← Implemented extract (backend-v2 @ 32c0fbd29) + drafts for unbuilt modules
 ├── docs/
 │   ├── PRD-accounting-system-overview.md  ← Master PRD
 │   ├── PRD-module-ar.md                   ← Accounts Receivable

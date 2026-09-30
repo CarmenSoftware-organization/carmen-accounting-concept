@@ -6,7 +6,7 @@
 // This file is DOCUMENTATION, not a compiled schema. It has two kinds of content:
 //
 //   IMPLEMENTED  Copied verbatim from the backend-v2 tenant schema
-//                packages/prisma-shared-schema-tenant/prisma/schema.prisma @ b80024588 (main, 2026-09-30).
+//                packages/prisma-shared-schema-tenant/prisma/schema.prisma @ 32c0fbd29 (main, 2026-09-30).
 //                Each block notes its source line range. The tenant schema is authoritative;
 //                do not edit these blocks here — change backend-v2 and re-copy.
 //
@@ -28,7 +28,7 @@
 //   tb_budget_plan, tb_budget_line                         -> tb_gl_budget, tb_gl_budget_detail
 //   tb_tax_invoice (draft)                                 -> tb_ap_invoice_tax (implemented) / tb_ar_tax_invoice (draft)
 //
-// AR draft (2026-09-30) was redesigned to mirror the implemented AP tables; see docs/PRD-module-ar.md §6.
+// AR tables were implemented (schema only) on 2026-09-30; see docs/superpowers/specs/2026-09-30-accounting-ar-schema-design.md.
 // `// ⚠ OI-n` marks fields waiting on a BA decision (PRD-module-ar §9).
 //
 // Related: docs/PRD-accounting-system-overview.md, docs/superpowers/specs/2026-09-23-accounting-foundation-ap-design.md
@@ -44,7 +44,7 @@ datasource db {
 }
 
 // ==============================================================================
-// 1. IMPLEMENTED — enums (21) [tenant schema @ b80024588]
+// 1. IMPLEMENTED — enums (28) [tenant schema @ 32c0fbd29]
 // ==============================================================================
 
 // source: schema.prisma:299-304
@@ -100,7 +100,7 @@ enum enum_ap_payment_status {
   void
 }
 
-// source: schema.prisma:2958-2965
+// source: schema.prisma:3010-3017
 enum enum_chart_of_accounts_category {
   asset
   liability
@@ -110,13 +110,13 @@ enum enum_chart_of_accounts_category {
   statistic
 }
 
-// source: schema.prisma:2944-2947
+// source: schema.prisma:2996-2999
 enum enum_chart_of_accounts_nature {
   credit
   debit
 }
 
-// source: schema.prisma:2949-2955
+// source: schema.prisma:3001-3007
 enum enum_chart_of_accounts_type {
   header
   balance_sheet
@@ -125,7 +125,7 @@ enum enum_chart_of_accounts_type {
   summary
 }
 
-// source: schema.prisma:2996-3001
+// source: schema.prisma:3048-3053
 enum enum_chart_of_accounts_use_in {
   ap
   ar
@@ -140,20 +140,20 @@ enum enum_gl_account_dimension_rule_requirement {
   prohibited
 }
 
-// source: schema.prisma:2986-2989
+// source: schema.prisma:3038-3041
 enum enum_gl_amortize_type {
   day_in_month
   monthly
 }
 
-// source: schema.prisma:2974-2978
+// source: schema.prisma:3026-3030
 enum enum_gl_budget_status {
   draft
   active
   superseded
 }
 
-// source: schema.prisma:4804-4816
+// source: schema.prisma:4856-4868
 enum enum_gl_jv_source {
   manual
   recurring
@@ -168,21 +168,21 @@ enum enum_gl_jv_source {
   interface
 }
 
-// source: schema.prisma:2980-2984
+// source: schema.prisma:3032-3036
 enum enum_gl_jv_template_type {
   recurring
   allocation
   amortize
 }
 
-// source: schema.prisma:2968-2972
+// source: schema.prisma:3020-3024
 enum enum_gl_period_status {
   open
   closed
   locked
 }
 
-// source: schema.prisma:2991-2994
+// source: schema.prisma:3043-3046
 enum enum_gl_side {
   debit
   credit
@@ -197,7 +197,7 @@ enum enum_jv_status {
   void
 }
 
-// source: schema.prisma:2573-2578
+// source: schema.prisma:2625-2630
 enum enum_last_action {
   submitted
   approved
@@ -220,13 +220,69 @@ enum enum_tax_profile_wht_pnd_form {
   pnd_54
 }
 
+// source: schema.prisma:347-352
+enum enum_ar_invoice_doc_type {
+  invoice
+  debit_note
+  credit_note
+  deposit
+}
+
+// source: schema.prisma:355-360
+enum enum_ar_invoice_status {
+  draft
+  in_review
+  posted
+  void
+}
+
+// source: schema.prisma:362-367
+enum enum_ar_invoice_source {
+  manual
+  pms_folio
+  copy
+  ai
+}
+
+// source: schema.prisma:369-373
+enum enum_ar_tax_invoice_status {
+  pending
+  confirmed
+  submitted
+}
+
+// source: schema.prisma:375-380
+enum enum_ar_receipt_status {
+  draft
+  in_review
+  posted
+  void
+}
+
+// source: schema.prisma:382-388
+enum enum_ar_receipt_method {
+  bank_transfer
+  cheque
+  cash
+  credit_card
+  promptpay
+}
+
+// source: schema.prisma:390-395
+enum enum_customer_address_type {
+  contact_address
+  mailing_address
+  register_address
+  billing_address
+}
+
 // ==============================================================================
-// 2. IMPLEMENTED — models (32) [tenant schema @ b80024588]
+// 2. IMPLEMENTED — models (42) [tenant schema @ 32c0fbd29]
 // ==============================================================================
 
 // ---- Master data -------------------------------------------------------------
 
-// source: schema.prisma:624-667
+// source: schema.prisma:675-718
 model tb_currency {
   // NOTE: 9 back-relation list fields to non-accounting tables trimmed from this extract
   doc_version    Int      @default(0) @db.Integer
@@ -264,7 +320,7 @@ model tb_currency {
   @@index([name], map: "currency_name_idx")
 }
 
-// source: schema.prisma:3003-3042
+// source: schema.prisma:3055-3094
 model tb_chart_of_accounts {
   doc_version            Int                              @default(0) @db.Integer
   id                     String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -306,7 +362,7 @@ model tb_chart_of_accounts {
   @@index([account_group_id], map: "chartofaccounts_account_group_id_idx")
 }
 
-// source: schema.prisma:3048-3075
+// source: schema.prisma:3100-3127
 model tb_cost_center_group {
   doc_version Int      @default(0) @db.Integer
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -336,7 +392,7 @@ model tb_cost_center_group {
   @@index([name], map: "costcentergroup_name_idx")
 }
 
-// source: schema.prisma:3077-3107
+// source: schema.prisma:3129-3159
 model tb_cost_center {
   doc_version          Int      @default(0) @db.Integer
   id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -369,7 +425,7 @@ model tb_cost_center {
   @@index([cost_center_group_id], map: "costcenter_group_id_idx")
 }
 
-// source: schema.prisma:3109-3132
+// source: schema.prisma:3161-3184
 model tb_cost_center_account {
   doc_version          Int    @default(0) @db.Integer
   id                   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -395,7 +451,7 @@ model tb_cost_center_account {
   @@index([chart_of_accounts_id], map: "costcenteraccount_chart_of_accounts_id_idx")
 }
 
-// source: schema.prisma:7015-7045
+// source: schema.prisma:7069-7100
 model tb_bank_account {
   doc_version          Int     @default(0) @db.Integer
   id                   String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -423,12 +479,13 @@ model tb_bank_account {
 
   tb_chart_of_accounts tb_chart_of_accounts @relation(fields: [chart_of_accounts_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tb_ap_payment        tb_ap_payment[]
+  tb_ar_receipt        tb_ar_receipt[]
 
   @@unique([code, deleted_at], map: "bankaccount_code_u")
   @@index([code], map: "bankaccount_code_idx")
 }
 
-// source: schema.prisma:1554-1595
+// source: schema.prisma:1605-1647
 model tb_tax_profile {
   // NOTE: 13 back-relation list fields to non-accounting tables trimmed from this extract
   doc_version Int      @default(0) @db.Integer
@@ -455,6 +512,7 @@ model tb_tax_profile {
   deleted_by_id String?   @db.Uuid
 
   tb_chart_of_accounts                tb_chart_of_accounts?                 @relation(fields: [chart_of_accounts_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tb_customer                         tb_customer[]
 
   @@unique([name, deleted_at], map: "taxprofile_name_deletedat_u")
   @@index([name], map: "taxprofile_name_idx")
@@ -462,7 +520,7 @@ model tb_tax_profile {
 
 // ---- General Ledger ----------------------------------------------------------
 
-// source: schema.prisma:3200-3229
+// source: schema.prisma:3252-3281
 model tb_gl_period {
   doc_version  Int                   @default(0) @db.Integer
   id           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -494,7 +552,7 @@ model tb_gl_period {
   @@index([status], map: "glperiod_status_idx")
 }
 
-// source: schema.prisma:3137-3162
+// source: schema.prisma:3189-3214
 model tb_gl_jv_prefix {
   doc_version       Int     @default(0) @db.Integer
   id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -522,7 +580,7 @@ model tb_gl_jv_prefix {
   @@index([code], map: "gljvprefix_code_idx")
 }
 
-// source: schema.prisma:3165-3197
+// source: schema.prisma:3217-3249
 model tb_gl_account_group {
   doc_version Int                             @default(0) @db.Integer
   id          String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -557,7 +615,7 @@ model tb_gl_account_group {
   @@index([category], map: "glaccountgroup_category_idx")
 }
 
-// source: schema.prisma:4821-4904
+// source: schema.prisma:4873-4956
 model tb_gl_jv_header {
   id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   currency_id        String?  @db.Uuid
@@ -643,7 +701,7 @@ model tb_gl_jv_header {
   @@index([template_id], map: "gljvheader_template_id_idx")
 }
 
-// source: schema.prisma:4575-4625
+// source: schema.prisma:4627-4677
 model tb_gl_jv_detail {
   id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   jv_header_id String @db.Uuid
@@ -696,7 +754,7 @@ model tb_gl_jv_detail {
   @@index([jv_header_id, sequence_no], map: "gljvdetail_header_seq_idx")
 }
 
-// source: schema.prisma:4632-4649
+// source: schema.prisma:4684-4701
 model tb_gl_balance {
   id                   String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   gl_period_id         String  @db.Uuid
@@ -716,7 +774,7 @@ model tb_gl_balance {
   @@index([cost_center_id], map: "glbalance_cost_center_idx")
 }
 
-// source: schema.prisma:4655-4678
+// source: schema.prisma:4707-4730
 model tb_gl_budget {
   doc_version Int                   @default(0) @db.Integer
   id          String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -742,7 +800,7 @@ model tb_gl_budget {
   @@index([status], map: "glbudget_status_idx")
 }
 
-// source: schema.prisma:4683-4707
+// source: schema.prisma:4735-4759
 model tb_gl_budget_detail {
   doc_version          Int     @default(0) @db.Integer
   id                   String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -769,7 +827,7 @@ model tb_gl_budget_detail {
   @@index([chart_of_accounts_id], map: "glbudgetdetail_coa_idx")
 }
 
-// source: schema.prisma:4712-4753
+// source: schema.prisma:4764-4805
 model tb_gl_jv_template {
   doc_version      Int                      @default(0) @db.Integer
   id               String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -813,7 +871,7 @@ model tb_gl_jv_template {
   @@index([is_active], map: "gljvtemplate_is_active_idx")
 }
 
-// source: schema.prisma:4757-4784
+// source: schema.prisma:4809-4836
 model tb_gl_jv_template_detail {
   doc_version          Int           @default(0) @db.Integer
   id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -843,7 +901,7 @@ model tb_gl_jv_template_detail {
   @@index([template_id], map: "gljvtemplatedetail_template_id_idx")
 }
 
-// source: schema.prisma:4788-4802
+// source: schema.prisma:4840-4854
 model tb_gl_jv_template_run {
   id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   template_id     String   @db.Uuid
@@ -862,7 +920,7 @@ model tb_gl_jv_template_run {
 
 // ---- Accounting dimensions ---------------------------------------------------
 
-// source: schema.prisma:6917-6944
+// source: schema.prisma:6969-6997
 model tb_gl_dimension {
   doc_version Int     @default(0) @db.Integer
   id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -887,12 +945,13 @@ model tb_gl_dimension {
   tb_gl_account_dimension_rule   tb_gl_account_dimension_rule[]
   tb_gl_jv_detail_dimension      tb_gl_jv_detail_dimension[]
   tb_ap_invoice_detail_dimension tb_ap_invoice_detail_dimension[]
+  tb_ar_invoice_detail_dimension tb_ar_invoice_detail_dimension[]
 
   @@unique([code, deleted_at], map: "gldimension_code_u")
   @@index([code], map: "gldimension_code_idx")
 }
 
-// source: schema.prisma:6946-6973
+// source: schema.prisma:6999-7027
 model tb_gl_dimension_value {
   doc_version     Int       @default(0) @db.Integer
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -917,12 +976,13 @@ model tb_gl_dimension_value {
   tb_gl_dimension                tb_gl_dimension                  @relation(fields: [gl_dimension_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tb_gl_jv_detail_dimension      tb_gl_jv_detail_dimension[]
   tb_ap_invoice_detail_dimension tb_ap_invoice_detail_dimension[]
+  tb_ar_invoice_detail_dimension tb_ar_invoice_detail_dimension[]
 
   @@unique([gl_dimension_id, code, deleted_at], map: "gldimensionvalue_code_u")
   @@index([gl_dimension_id], map: "gldimensionvalue_dimension_idx")
 }
 
-// source: schema.prisma:6975-6994
+// source: schema.prisma:7029-7048
 model tb_gl_account_dimension_rule {
   doc_version          Int                                        @default(0) @db.Integer
   id                   String                                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -944,7 +1004,7 @@ model tb_gl_account_dimension_rule {
   @@index([chart_of_accounts_id], map: "glaccountdimensionrule_account_idx")
 }
 
-// source: schema.prisma:6996-7013
+// source: schema.prisma:7050-7067
 model tb_gl_jv_detail_dimension {
   id                    String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   gl_jv_detail_id       String @db.Uuid
@@ -966,7 +1026,7 @@ model tb_gl_jv_detail_dimension {
 
 // ---- AP Invoice --------------------------------------------------------------
 
-// source: schema.prisma:7047-7130
+// source: schema.prisma:7102-7185
 model tb_ap_invoice {
   doc_version Int    @default(0) @db.Integer
   id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1052,7 +1112,7 @@ model tb_ap_invoice {
   @@index([gl_jv_id], map: "apinvoice_gl_jv_idx")
 }
 
-// source: schema.prisma:7132-7195
+// source: schema.prisma:7187-7250
 model tb_ap_invoice_detail {
   doc_version   Int     @default(0) @db.Integer
   id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1118,7 +1178,7 @@ model tb_ap_invoice_detail {
   @@index([ap_invoice_id], map: "apinvoicedetail_invoice_idx")
 }
 
-// source: schema.prisma:7197-7213
+// source: schema.prisma:7252-7268
 model tb_ap_invoice_detail_dimension {
   id                    String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ap_invoice_detail_id  String @db.Uuid
@@ -1137,7 +1197,7 @@ model tb_ap_invoice_detail_dimension {
   @@unique([ap_invoice_detail_id, gl_dimension_id], map: "apinvoicedetaildimension_u")
 }
 
-// source: schema.prisma:7215-7233
+// source: schema.prisma:7270-7288
 model tb_ap_invoice_detail_source {
   id                                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ap_invoice_detail_id              String  @db.Uuid
@@ -1158,7 +1218,7 @@ model tb_ap_invoice_detail_source {
   @@index([good_received_note_id], map: "apinvoicedetailsource_grn_idx")
 }
 
-// source: schema.prisma:7235-7253
+// source: schema.prisma:7290-7308
 model tb_ap_invoice_reference {
   id                           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ap_invoice_id                String                   @db.Uuid
@@ -1179,7 +1239,7 @@ model tb_ap_invoice_reference {
   @@index([ref_ap_invoice_id], map: "apinvoicereference_ref_idx")
 }
 
-// source: schema.prisma:7255-7280
+// source: schema.prisma:7310-7335
 model tb_ap_invoice_tax {
   doc_version       Int                        @default(0) @db.Integer
   id                String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1209,7 +1269,7 @@ model tb_ap_invoice_tax {
 
 // ---- AP Payment --------------------------------------------------------------
 
-// source: schema.prisma:7282-7363
+// source: schema.prisma:7337-7418
 model tb_ap_payment {
   doc_version Int    @default(0) @db.Integer
   id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1293,7 +1353,7 @@ model tb_ap_payment {
   @@index([payment_date], map: "appayment_date_idx")
 }
 
-// source: schema.prisma:7365-7386
+// source: schema.prisma:7420-7441
 model tb_ap_payment_detail {
   id                           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ap_payment_id                String                   @db.Uuid
@@ -1317,7 +1377,7 @@ model tb_ap_payment_detail {
   @@index([ap_invoice_detail_id], map: "appaymentdetail_invoice_detail_idx")
 }
 
-// source: schema.prisma:7388-7407
+// source: schema.prisma:7443-7462
 model tb_ap_payment_wht {
   id                   String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ap_payment_id        String                         @db.Uuid
@@ -1339,7 +1399,7 @@ model tb_ap_payment_wht {
   @@index([ap_payment_id], map: "appaymentwht_payment_idx")
 }
 
-// source: schema.prisma:7409-7424
+// source: schema.prisma:7464-7479
 model tb_ap_payment_expense {
   id                   String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ap_payment_id        String  @db.Uuid
@@ -1357,8 +1417,483 @@ model tb_ap_payment_expense {
   @@index([ap_payment_id], map: "appaymentexpense_payment_idx")
 }
 
+// ---- Accounts Receivable ---------------------------------------------------
+
+// source: schema.prisma:7481-7525
+model tb_customer {
+  doc_version Int     @default(0) @db.Integer
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String  @db.VarChar // AR code (FRD `ar_code`)
+  name        String  @db.VarChar
+  description String? @db.VarChar
+  note        String? @db.VarChar
+
+  customer_group Json? @default("[]") @db.JsonB // [{id, name}] e.g. CORP / FIT / OTA / GOVT — same shape as tb_vendor.business_type
+
+  registered_name String? @db.VarChar // ชื่อผู้ประกอบการจดทะเบียน ที่พิมพ์บนใบกำกับภาษี
+  tax_no          String? @db.VarChar // เลขประจำตัวผู้เสียภาษี 13 หลัก (ต่างประเทศอาจไม่มี)
+  branch_no       String? @db.VarChar // "00000" = สำนักงานใหญ่
+  tax_profile_id  String? @db.Uuid // default output-tax profile
+
+  default_currency_id     String? @db.Uuid
+  default_currency_code   String? @db.VarChar(3)
+  credit_term_id          String? @db.Uuid
+  credit_term_name        String? @db.VarChar
+  credit_term_days        Int?    @db.Integer
+  credit_limit            Decimal @default(0) @db.Decimal(20, 5)
+  ar_chart_of_accounts_id String? @db.Uuid // default Dr AR account; falls back to gl_setting
+
+  pms_account_code String? @db.VarChar // City Ledger account code in the PMS (folio lookup key)
+
+  is_active Boolean? @default(true)
+  info      Json?    @default("{}") @db.JsonB
+  dimension Json?    @default("[]") @db.JsonB
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  tb_tax_profile      tb_tax_profile?       @relation(fields: [tax_profile_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tb_customer_address tb_customer_address[]
+  tb_ar_invoice       tb_ar_invoice[]
+  tb_ar_receipt       tb_ar_receipt[]
+
+  @@unique([code, deleted_at], map: "customer_code_u")
+  @@index([name], map: "customer_name_idx")
+  @@index([tax_no], map: "customer_tax_no_idx")
+}
+
+// source: schema.prisma:7527-7554
+model tb_customer_address {
+  doc_version   Int                         @default(0) @db.Integer
+  id            String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id   String                      @db.Uuid
+  address_type  enum_customer_address_type
+  address_line1 String?                     @db.VarChar // บ้านเลขที่ / ถนน / ซอย
+  address_line2 String?                     @db.VarChar // อาคาร / ชั้น
+  sub_district  String?                     @db.VarChar // ตำบล / แขวง
+  district      String?                     @db.VarChar // อำเภอ / เขต
+  city          String?                     @db.VarChar
+  province      String?                     @db.VarChar
+  postal_code   String?                     @db.VarChar
+  country       String?                     @db.VarChar
+  is_active     Boolean?                    @default(true)
+  info          Json?                       @default("{}") @db.JsonB
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  tb_customer tb_customer @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([customer_id, address_type, deleted_at], map: "customeraddress_type_u")
+  @@index([customer_id], map: "customeraddress_customer_idx")
+}
+
+// source: schema.prisma:7557-7648
+model tb_ar_invoice {
+  doc_version Int    @default(0) @db.Integer
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  doc_no         String                   @db.VarChar(30) // ARIV{YY}{MM}{0000}, running-code type AR-IV/DN/CN/DP
+  doc_type       enum_ar_invoice_doc_type
+  doc_status     enum_ar_invoice_status   @default(draft)
+  doc_source     enum_ar_invoice_source   @default(manual)
+  doc_date       DateTime                 @db.Date // FRD input_date = GL date
+  description    String?                  @db.VarChar
+  source_doc_ref String?                  @db.VarChar(100) // external ref (booking / folio batch / copied doc no)
+  is_pms_folio   Boolean                  @default(false) // true = billed from PMS folios, no GL post (PRD §3.1)
+
+  customer_id      String   @db.Uuid
+  customer_code    String   @db.VarChar
+  customer_name    String   @db.VarChar
+  credit_term_id   String?  @db.Uuid
+  credit_term_name String?  @db.VarChar
+  credit_term_days Int      @default(0) @db.Integer
+  due_date         DateTime @db.Date // doc_date + credit_term_days; aging key
+
+  is_tax_invoice Boolean @default(false) // Tab 2: issue tax invoice on submit → tb_ar_tax_invoice
+
+  currency_id        String  @db.Uuid
+  currency_code      String  @db.VarChar(3)
+  exchange_rate      Decimal @default(1) @db.Decimal(15, 5)
+  base_currency_id   String  @db.Uuid
+  base_currency_code String  @db.VarChar(3)
+
+  sub_total_amount         Decimal @default(0) @db.Decimal(20, 5)
+  discount_amount          Decimal @default(0) @db.Decimal(20, 5)
+  net_amount               Decimal @default(0) @db.Decimal(20, 5)
+  vat_amount               Decimal @default(0) @db.Decimal(20, 5) // FRD tax1
+  tax2_amount              Decimal @default(0) @db.Decimal(20, 5) // FRD tax2 (supplementary tax)
+  total_amount             Decimal @default(0) @db.Decimal(20, 5)
+  base_sub_total_amount    Decimal @default(0) @db.Decimal(20, 5)
+  base_discount_amount     Decimal @default(0) @db.Decimal(20, 5)
+  base_net_amount          Decimal @default(0) @db.Decimal(20, 5)
+  base_vat_amount          Decimal @default(0) @db.Decimal(20, 5)
+  base_tax2_amount         Decimal @default(0) @db.Decimal(20, 5)
+  base_total_amount        Decimal @default(0) @db.Decimal(20, 5)
+  is_wht_recorded          Boolean @default(false)
+  wht_amount               Decimal @default(0) @db.Decimal(20, 5) // reference only — no GL at invoice
+  outstanding_amount       Decimal @default(0) @db.Decimal(20, 5) // Σ detail.unpaid_amount (FRD unpaid_amount)
+  reference_applied_amount Decimal @default(0) @db.Decimal(20, 5) // Σ deposits applied via tb_ar_invoice_reference
+
+  gl_jv_id     String?   @db.Uuid // null when is_pms_folio (no GL post)
+  gl_jv_no     String?   @db.VarChar
+  posted_at    DateTime? @db.Timestamptz(6)
+  posted_by_id String?   @db.Uuid
+
+  void_at       DateTime? @db.Timestamptz(6)
+  void_by_id    String?   @db.Uuid
+  void_reason   String?   @db.VarChar
+  void_gl_jv_id String?   @db.Uuid
+
+  workflow_id             String?           @db.Uuid
+  workflow_name           String?           @db.VarChar
+  workflow_history        Json?             @default("[]") @db.JsonB
+  workflow_current_stage  String?           @db.VarChar
+  workflow_previous_stage String?           @db.VarChar
+  workflow_next_stage     String?           @db.VarChar
+  user_action             Json?             @db.JsonB
+  last_action             enum_last_action?
+  last_action_at_date     DateTime?         @db.Timestamptz(6)
+  last_action_by_id       String?           @db.Uuid
+  last_action_by_name     String?           @db.VarChar
+
+  attachments Json? @default("[]") @db.JsonB
+  info        Json? @default("{}") @db.JsonB
+  dimension   Json? @default("[]") @db.JsonB
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  tb_customer                 tb_customer               @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tb_ar_invoice_detail        tb_ar_invoice_detail[]
+  tb_ar_invoice_reference     tb_ar_invoice_reference[] @relation("ArInvoiceReferences")
+  tb_ar_invoice_referenced_by tb_ar_invoice_reference[] @relation("ArInvoiceReferencedBy")
+  tb_ar_tax_invoice           tb_ar_tax_invoice?
+  tb_ar_receipt_detail        tb_ar_receipt_detail[]
+
+  @@unique([doc_no, deleted_at], map: "arinvoice_doc_no_u")
+  @@index([customer_id, doc_status], map: "arinvoice_customer_status_idx")
+  @@index([doc_date], map: "arinvoice_doc_date_idx")
+  @@index([due_date], map: "arinvoice_due_date_idx")
+  @@index([gl_jv_id], map: "arinvoice_gl_jv_idx")
+}
+
+// source: schema.prisma:7651-7733
+model tb_ar_invoice_detail {
+  doc_version   Int     @default(0) @db.Integer
+  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_invoice_id String  @db.Uuid
+  sequence_no   Int     @db.Integer
+  group_no      Int     @default(1) @db.Integer // summary-invoice print grouping
+  description   String? @db.VarChar
+
+  // Section 0 — booking & reference
+  reference_info String?   @db.VarChar // 2-line folio / booking / guest text
+  date_from      DateTime? @db.Date
+  date_to        DateTime? @db.Date
+  is_pms_folio   Boolean   @default(false)
+  folio_no       String?   @db.VarChar(50)
+  folio_date     DateTime? @db.Date
+  folio_amount   Decimal?  @db.Decimal(20, 5) // folio balance at import; settle = net_amount (0 < settle ≤ folio_amount, ERR_AR_002)
+
+  unit_id      String? @db.Uuid
+  unit_name    String? @db.VarChar
+  quantity     Decimal @default(1) @db.Decimal(20, 5)
+  unit_price   Decimal @default(0) @db.Decimal(20, 5)
+
+  // Section 1 — discount
+  sub_total_amount     Decimal @default(0) @db.Decimal(20, 5)
+  discount_pct         Decimal @default(0) @db.Decimal(15, 5)
+  discount_amount      Decimal @default(0) @db.Decimal(20, 5)
+  discount_is_override Boolean @default(false)
+  net_amount           Decimal @default(0) @db.Decimal(20, 5)
+
+  // Section 2 — revenue (Cr)
+  cr_chart_of_accounts_id String  @db.Uuid
+  cr_account_code         String? @db.VarChar
+  cr_cost_center_id       String  @db.Uuid // USALI department, required for revenue
+  cr_cost_center_code     String? @db.VarChar
+
+  // Section 3 — output tax 1 (VAT)
+  vat_tax_profile_id       String? @db.Uuid
+  vat_rate                 Decimal @default(0) @db.Decimal(15, 5)
+  vat_amount               Decimal @default(0) @db.Decimal(20, 5)
+  vat_is_override          Boolean @default(false)
+  vat_chart_of_accounts_id String? @db.Uuid // Output VAT Pending
+  vat_cost_center_id       String? @db.Uuid
+
+  tax2_tax_profile_id       String? @db.Uuid
+  tax2_rate                 Decimal @default(0) @db.Decimal(15, 5)
+  tax2_amount               Decimal @default(0) @db.Decimal(20, 5)
+  tax2_is_override          Boolean @default(false)
+  tax2_chart_of_accounts_id String? @db.Uuid
+  tax2_cost_center_id       String? @db.Uuid
+
+  // Section 4 — accounts receivable (Dr)
+  dr_chart_of_accounts_id String  @db.Uuid
+  dr_account_code         String? @db.VarChar
+  dr_cost_center_id       String? @db.Uuid
+
+  total_amount          Decimal @default(0) @db.Decimal(20, 5) // net + vat + tax2
+  unpaid_amount         Decimal @default(0) @db.Decimal(20, 5)
+  base_sub_total_amount Decimal @default(0) @db.Decimal(20, 5)
+  base_discount_amount  Decimal @default(0) @db.Decimal(20, 5)
+  base_net_amount       Decimal @default(0) @db.Decimal(20, 5)
+  base_vat_amount       Decimal @default(0) @db.Decimal(20, 5)
+  base_tax2_amount      Decimal @default(0) @db.Decimal(20, 5)
+  base_total_amount     Decimal @default(0) @db.Decimal(20, 5)
+  base_unpaid_amount    Decimal @default(0) @db.Decimal(20, 5)
+
+  info      Json? @default("{}") @db.JsonB
+  dimension Json? @default("[]") @db.JsonB
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  tb_ar_invoice                  tb_ar_invoice                    @relation(fields: [ar_invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tb_ar_invoice_detail_dimension tb_ar_invoice_detail_dimension[]
+  tb_ar_receipt_detail           tb_ar_receipt_detail[]
+
+  @@unique([ar_invoice_id, sequence_no, deleted_at], map: "arinvoicedetail_seq_u")
+  @@index([ar_invoice_id], map: "arinvoicedetail_invoice_idx")
+  @@index([folio_no], map: "arinvoicedetail_folio_idx")
+}
+
+// source: schema.prisma:7736-7752
+model tb_ar_invoice_detail_dimension {
+  id                    String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_invoice_detail_id  String @db.Uuid
+  gl_dimension_id       String @db.Uuid
+  gl_dimension_value_id String @db.Uuid
+  dimension_code        String @db.VarChar(20)
+  value_code            String @db.VarChar(30)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+
+  tb_ar_invoice_detail  tb_ar_invoice_detail  @relation(fields: [ar_invoice_detail_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tb_gl_dimension       tb_gl_dimension       @relation(fields: [gl_dimension_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tb_gl_dimension_value tb_gl_dimension_value @relation(fields: [gl_dimension_value_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([ar_invoice_detail_id, gl_dimension_id], map: "arinvoicedetaildimension_u")
+}
+
+// source: schema.prisma:7754-7775
+model tb_ar_invoice_reference {
+  id                           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_invoice_id                String                   @db.Uuid
+  ref_ar_invoice_id            String                   @db.Uuid
+  ref_doc_type                 enum_ar_invoice_doc_type
+  applied_net_amount           Decimal                  @default(0) @db.Decimal(20, 5)
+  applied_vat_amount           Decimal                  @default(0) @db.Decimal(20, 5)
+  applied_amount               Decimal                  @default(0) @db.Decimal(20, 5) // net + vat = total offset
+  base_applied_at_invoice_rate Decimal                  @default(0) @db.Decimal(20, 5)
+  base_applied_at_ref_rate     Decimal                  @default(0) @db.Decimal(20, 5)
+  realized_fx_amount           Decimal                  @default(0) @db.Decimal(20, 5) // > 0 = loss (Dr), < 0 = gain (Cr)
+  remarks                      String?                  @db.VarChar
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+
+  tb_ar_invoice     tb_ar_invoice @relation("ArInvoiceReferences", fields: [ar_invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tb_ref_ar_invoice tb_ar_invoice @relation("ArInvoiceReferencedBy", fields: [ref_ar_invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([ar_invoice_id, ref_ar_invoice_id], map: "arinvoicereference_u")
+  @@index([ref_ar_invoice_id], map: "arinvoicereference_ref_idx")
+}
+
+// source: schema.prisma:7778-7816
+model tb_ar_tax_invoice {
+  doc_version      Int                         @default(0) @db.Integer
+  id               String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_invoice_id    String?                     @unique(map: "artaxinvoice_invoice_u") @db.Uuid
+  ar_receipt_id    String?                     @unique(map: "artaxinvoice_receipt_u") @db.Uuid
+  tax_prefix       String                      @db.VarChar(10) // TXIV / TXDN / TXCN / TXDP / TXRC
+  tax_invoice_no   String                      @db.VarChar(30) // generated on submit, never on save draft (ERR_AR_006 on collision)
+  tax_invoice_date DateTime                    @db.Date
+  filing_month     Int?                        @db.Integer // FRD tax_period MM/YYYY
+  filing_year      Int?                        @db.Integer
+  tax_status       enum_ar_tax_invoice_status  @default(pending)
+
+  customer_registered_name String  @db.VarChar
+  customer_tax_no          String? @db.VarChar(13)
+  customer_branch_no       String? @db.VarChar(5)
+  address_line1            String? @db.VarChar
+  address_line2            String? @db.VarChar
+  province                 String? @db.VarChar
+  postal_code              String? @db.VarChar(10)
+
+  base_amount  Decimal @default(0) @db.Decimal(20, 5) // THB
+  vat_rate     Decimal @default(7) @db.Decimal(15, 5)
+  vat_amount   Decimal @default(0) @db.Decimal(20, 5) // THB
+  total_amount Decimal @default(0) @db.Decimal(20, 5) // THB
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  tb_ar_invoice tb_ar_invoice? @relation(fields: [ar_invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tb_ar_receipt tb_ar_receipt? @relation(fields: [ar_receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([tax_invoice_no, deleted_at], map: "artaxinvoice_no_u")
+  @@index([tax_invoice_date], map: "artaxinvoice_date_idx")
+  @@index([filing_year, filing_month], map: "artaxinvoice_period_idx")
+}
+
+// source: schema.prisma:7819-7901
+model tb_ar_receipt {
+  doc_version Int    @default(0) @db.Integer
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  doc_no        String                 @db.VarChar(30) // ARRC{YY}{MM}{0000}
+  doc_status    enum_ar_receipt_status @default(draft)
+  receipt_date  DateTime               @db.Date // GL date
+  received_date DateTime?              @db.Date // value date on bank statement
+  description   String?                @db.VarChar
+  reference_no  String?                @db.VarChar(100)
+
+  customer_id   String  @db.Uuid
+  customer_code String  @db.VarChar
+  customer_name String  @db.VarChar
+  payer_name    String? @db.VarChar // name on cheque / transfer when not the customer
+
+  bank_account_id   String                  @db.Uuid
+  bank_account_code String                  @db.VarChar(20)
+  bank_account_name String                  @db.VarChar
+  receipt_method    enum_ar_receipt_method  @default(bank_transfer)
+  cheque_no         String?                 @db.VarChar(50)
+  cheque_date       DateTime?               @db.Date
+
+  is_tax_invoice Boolean @default(false) // TXRC issued at receipt (services) → tb_ar_tax_invoice
+
+  currency_id        String  @db.Uuid
+  currency_code      String  @db.VarChar(3)
+  exchange_rate      Decimal @default(1) @db.Decimal(15, 5)
+  base_currency_id   String  @db.Uuid
+  base_currency_code String  @db.VarChar(3)
+
+  total_applied_amount      Decimal @default(0) @db.Decimal(20, 5) // Σ detail.applied_amount
+  total_wht_amount          Decimal @default(0) @db.Decimal(20, 5) // WHT deducted by customer (50 ทวิ received)
+  total_charge_amount       Decimal @default(0) @db.Decimal(20, 5) // bank charges / short payment written off
+  net_received_amount       Decimal @default(0) @db.Decimal(20, 5) // applied − wht − charge = bank Dr
+  base_total_applied_amount Decimal @default(0) @db.Decimal(20, 5)
+  base_total_wht_amount     Decimal @default(0) @db.Decimal(20, 5)
+  base_total_charge_amount  Decimal @default(0) @db.Decimal(20, 5)
+  base_net_received_amount  Decimal @default(0) @db.Decimal(20, 5)
+  realized_fx_amount        Decimal @default(0) @db.Decimal(20, 5) // base@receipt − base@invoice; > 0 = gain (Cr)
+
+  gl_jv_id      String?   @db.Uuid
+  gl_jv_no      String?   @db.VarChar
+  posted_at     DateTime? @db.Timestamptz(6)
+  posted_by_id  String?   @db.Uuid
+  void_at       DateTime? @db.Timestamptz(6)
+  void_by_id    String?   @db.Uuid
+  void_reason   String?   @db.VarChar
+  void_gl_jv_id String?   @db.Uuid
+
+  workflow_id             String?           @db.Uuid
+  workflow_name           String?           @db.VarChar
+  workflow_history        Json?             @default("[]") @db.JsonB
+  workflow_current_stage  String?           @db.VarChar
+  workflow_previous_stage String?           @db.VarChar
+  workflow_next_stage     String?           @db.VarChar
+  user_action             Json?             @db.JsonB
+  last_action             enum_last_action?
+  last_action_at_date     DateTime?         @db.Timestamptz(6)
+  last_action_by_id       String?           @db.Uuid
+  last_action_by_name     String?           @db.VarChar
+
+  attachments Json? @default("[]") @db.JsonB
+  info        Json? @default("{}") @db.JsonB
+  dimension   Json? @default("[]") @db.JsonB
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  tb_customer                tb_customer                  @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tb_bank_account            tb_bank_account              @relation(fields: [bank_account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tb_ar_receipt_detail       tb_ar_receipt_detail[]
+  tb_ar_receipt_wht          tb_ar_receipt_wht[]
+  tb_ar_tax_invoice          tb_ar_tax_invoice?
+
+  @@unique([doc_no, deleted_at], map: "arreceipt_doc_no_u")
+  @@index([customer_id, doc_status], map: "arreceipt_customer_status_idx")
+  @@index([receipt_date], map: "arreceipt_date_idx")
+}
+
+// source: schema.prisma:7904-7925
+model tb_ar_receipt_detail {
+  id                           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_receipt_id                String                   @db.Uuid
+  ar_invoice_id                String                   @db.Uuid
+  ar_invoice_detail_id         String                   @db.Uuid
+  doc_type                     enum_ar_invoice_doc_type
+  applied_amount               Decimal                  @default(0) @db.Decimal(20, 5)
+  invoice_exchange_rate        Decimal                  @default(1) @db.Decimal(15, 5)
+  base_applied_at_invoice_rate Decimal                  @default(0) @db.Decimal(20, 5)
+  base_applied_at_receipt_rate Decimal                  @default(0) @db.Decimal(20, 5)
+  realized_fx_amount           Decimal                  @default(0) @db.Decimal(20, 5)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+
+  tb_ar_receipt        tb_ar_receipt        @relation(fields: [ar_receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tb_ar_invoice        tb_ar_invoice        @relation(fields: [ar_invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tb_ar_invoice_detail tb_ar_invoice_detail @relation(fields: [ar_invoice_detail_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([ar_receipt_id, ar_invoice_detail_id], map: "arreceiptdetail_u")
+  @@index([ar_invoice_detail_id], map: "arreceiptdetail_invoice_detail_idx")
+}
+
+// source: schema.prisma:7928-7949
+model tb_ar_receipt_wht {
+  id                   String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_receipt_id        String                         @db.Uuid
+  wht_certificate_no   String?                        @db.VarChar(50) // customer's certificate number
+  wht_certificate_date DateTime?                      @db.Date
+  wht_tax_profile_id   String?                        @db.Uuid
+  wht_tax_profile_name String?                        @db.VarChar
+  pnd_form             enum_tax_profile_wht_pnd_form?
+  income_type          String?                        @db.VarChar
+  base_amount          Decimal                        @default(0) @db.Decimal(20, 5)
+  wht_rate             Decimal                        @default(0) @db.Decimal(15, 5)
+  wht_amount           Decimal                        @default(0) @db.Decimal(20, 5)
+  is_override          Boolean                        @default(false)
+  chart_of_accounts_id String                         @db.Uuid // WHT receivable (gl_setting.wht_receivable_account_id)
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+
+  tb_ar_receipt tb_ar_receipt @relation(fields: [ar_receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([ar_receipt_id], map: "arreceiptwht_receipt_idx")
+}
+
 // ==============================================================================
-// 3. DRAFT — enums (14) [concept only]
+// 3. DRAFT — enums (7) [concept only]
 // ==============================================================================
 
 enum enum_asset_disposal_type {
@@ -1417,547 +1952,26 @@ enum enum_wht_form_type {
 }
 
 // AR document types — mirrors enum_ap_invoice_doc_type (ARIV / ARDN / ARCN / ARDP)
-enum enum_ar_invoice_doc_type {
-  invoice
-  debit_note
-  credit_note
-  deposit
-}
-
 // ⚠ OI-3: FRD lists Draft / Submitted / Approved / Posted / Void; this follows the AP lifecycle
 // (workflow stages live in workflow_* columns, GL posting happens once at `posted`)
-enum enum_ar_invoice_status {
-  draft
-  in_review
-  posted
-  void
-}
-
 // ⚠ OI-5: FRD §3.1 enum has Manual / PMS Folio / Copy; §4 also stamps AI
-enum enum_ar_invoice_source {
-  manual
-  pms_folio
-  copy
-  ai
-}
-
-enum enum_ar_tax_invoice_status {
-  pending
-  confirmed
-  submitted
-}
-
-enum enum_ar_receipt_status {
-  draft
-  in_review
-  posted
-  void
-}
-
-enum enum_ar_receipt_method {
-  bank_transfer
-  cheque
-  cash
-  credit_card
-  promptpay
-}
-
-enum enum_customer_address_type {
-  contact_address
-  mailing_address
-  register_address
-  billing_address
-}
-
 // ==============================================================================
-// 4. DRAFT — models (26) [concept only, not implemented]
+// 4. DRAFT — models (16) [concept only, not implemented]
 // ==============================================================================
-
-// ---- Accounts Receivable (DRAFT) ---------------------------------------------
 
 // ⚠ OI-7: no customer master exists in backend-v2 yet. Mirrors tb_vendor / tb_vendor_address.
-model tb_customer {
-  doc_version Int     @default(0) @db.Integer
-  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code        String  @db.VarChar // AR code (FRD `ar_code`)
-  name        String  @db.VarChar
-  description String? @db.VarChar
-  note        String? @db.VarChar
-
-  customer_group Json? @default("[]") @db.JsonB // [{id, name}] e.g. CORP / FIT / OTA / GOVT — same shape as tb_vendor.business_type
-
-  registered_name String? @db.VarChar // ชื่อผู้ประกอบการจดทะเบียน ที่พิมพ์บนใบกำกับภาษี
-  tax_no          String? @db.VarChar // เลขประจำตัวผู้เสียภาษี 13 หลัก (ต่างประเทศอาจไม่มี)
-  branch_no       String? @db.VarChar // "00000" = สำนักงานใหญ่
-  tax_profile_id  String? @db.Uuid // default output-tax profile
-  // tax_profile_id -> tb_tax_profile.id  (implemented model; @relation omitted, see header)
-
-  default_currency_id     String? @db.Uuid
-  default_currency_code   String? @db.VarChar(3)
-  credit_term_id          String? @db.Uuid
-  credit_term_name        String? @db.VarChar
-  credit_term_days        Int?    @db.Integer
-  credit_limit            Decimal @default(0) @db.Decimal(20, 5)
-  ar_chart_of_accounts_id String? @db.Uuid // default Dr AR account; falls back to gl_setting
-  // credit_term_id -> tb_credit_term.id ; ar_chart_of_accounts_id -> tb_chart_of_accounts.id  (implemented models)
-
-  pms_account_code String? @db.VarChar // City Ledger account code in the PMS (folio lookup key)
-
-  is_active Boolean? @default(true)
-  info      Json?    @default("{}") @db.JsonB
-  dimension Json?    @default("[]") @db.JsonB
-
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-  created_by_id String?   @db.Uuid
-  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
-  updated_by_id String?   @db.Uuid
-  deleted_at    DateTime? @db.Timestamptz(6)
-  deleted_by_id String?   @db.Uuid
-
-  tb_customer_address tb_customer_address[]
-  tb_ar_invoice       tb_ar_invoice[]
-  tb_ar_receipt       tb_ar_receipt[]
-
-  @@unique([code, deleted_at], map: "customer_code_u")
-  @@index([name], map: "customer_name_idx")
-  @@index([tax_no], map: "customer_tax_no_idx")
-}
-
-model tb_customer_address {
-  doc_version   Int                         @default(0) @db.Integer
-  id            String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  customer_id   String                      @db.Uuid
-  address_type  enum_customer_address_type
-  address_line1 String?                     @db.VarChar // บ้านเลขที่ / ถนน / ซอย
-  address_line2 String?                     @db.VarChar // อาคาร / ชั้น
-  sub_district  String?                     @db.VarChar // ตำบล / แขวง
-  district      String?                     @db.VarChar // อำเภอ / เขต
-  city          String?                     @db.VarChar
-  province      String?                     @db.VarChar
-  postal_code   String?                     @db.VarChar
-  country       String?                     @db.VarChar
-  is_active     Boolean?                    @default(true)
-  info          Json?                       @default("{}") @db.JsonB
-
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-  created_by_id String?   @db.Uuid
-  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
-  updated_by_id String?   @db.Uuid
-  deleted_at    DateTime? @db.Timestamptz(6)
-  deleted_by_id String?   @db.Uuid
-
-  tb_customer tb_customer @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@unique([customer_id, address_type, deleted_at], map: "customeraddress_type_u")
-  @@index([customer_id], map: "customeraddress_customer_idx")
-}
-
 // ARIV / ARDN / ARCN / ARDP in one table (FRD ar_invoice_header) — mirrors tb_ap_invoice.
 // ARRC (receipt) is NOT here: see tb_ar_receipt (⚠ OI-4).
-model tb_ar_invoice {
-  doc_version Int    @default(0) @db.Integer
-  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
-  doc_no         String                   @db.VarChar(30) // ARIV{YY}{MM}{0000}, running-code type AR-IV/DN/CN/DP
-  doc_type       enum_ar_invoice_doc_type
-  doc_status     enum_ar_invoice_status   @default(draft) // ⚠ OI-3
-  doc_source     enum_ar_invoice_source   @default(manual)
-  doc_date       DateTime                 @db.Date // FRD input_date = GL date
-  description    String?                  @db.VarChar
-  source_doc_ref String?                  @db.VarChar(100) // external ref (booking / folio batch / copied doc no)
-  is_pms_folio   Boolean                  @default(false) // true = billed from PMS folios, no GL post (PRD §3.1)
-
-  customer_id      String   @db.Uuid
-  customer_code    String   @db.VarChar
-  customer_name    String   @db.VarChar
-  credit_term_id   String?  @db.Uuid
-  credit_term_name String?  @db.VarChar
-  credit_term_days Int      @default(0) @db.Integer
-  due_date         DateTime @db.Date // doc_date + credit_term_days; aging key
-
-  is_tax_invoice Boolean @default(false) // Tab 2: issue tax invoice on submit → tb_ar_tax_invoice
-
-  currency_id        String  @db.Uuid
-  currency_code      String  @db.VarChar(3)
-  exchange_rate      Decimal @default(1) @db.Decimal(15, 5)
-  base_currency_id   String  @db.Uuid
-  base_currency_code String  @db.VarChar(3)
-  // currency_id / base_currency_id -> tb_currency.id  (implemented model)
-
-  sub_total_amount         Decimal @default(0) @db.Decimal(20, 5)
-  discount_amount          Decimal @default(0) @db.Decimal(20, 5)
-  net_amount               Decimal @default(0) @db.Decimal(20, 5)
-  vat_amount               Decimal @default(0) @db.Decimal(20, 5) // FRD tax1
-  tax2_amount              Decimal @default(0) @db.Decimal(20, 5) // FRD tax2 (supplementary tax) ⚠ OI-6
-  total_amount             Decimal @default(0) @db.Decimal(20, 5)
-  base_sub_total_amount    Decimal @default(0) @db.Decimal(20, 5)
-  base_discount_amount     Decimal @default(0) @db.Decimal(20, 5)
-  base_net_amount          Decimal @default(0) @db.Decimal(20, 5)
-  base_vat_amount          Decimal @default(0) @db.Decimal(20, 5)
-  base_tax2_amount         Decimal @default(0) @db.Decimal(20, 5)
-  base_total_amount        Decimal @default(0) @db.Decimal(20, 5)
-  is_wht_recorded          Boolean @default(false) // ⚠ OI-6: reference only, WHT is recognized at receipt
-  wht_amount               Decimal @default(0) @db.Decimal(20, 5) // reference only — no GL at invoice
-  outstanding_amount       Decimal @default(0) @db.Decimal(20, 5) // Σ detail.unpaid_amount (FRD unpaid_amount)
-  reference_applied_amount Decimal @default(0) @db.Decimal(20, 5) // Σ deposits applied via tb_ar_invoice_reference
-
-  gl_jv_id     String?   @db.Uuid // null when is_pms_folio (no GL post)
-  gl_jv_no     String?   @db.VarChar
-  posted_at    DateTime? @db.Timestamptz(6)
-  posted_by_id String?   @db.Uuid
-  // gl_jv_id -> tb_gl_jv_header.id  (implemented model)
-
-  void_at       DateTime? @db.Timestamptz(6)
-  void_by_id    String?   @db.Uuid
-  void_reason   String?   @db.VarChar
-  void_gl_jv_id String?   @db.Uuid
-
-  workflow_id             String?           @db.Uuid
-  workflow_name           String?           @db.VarChar
-  workflow_history        Json?             @default("[]") @db.JsonB
-  workflow_current_stage  String?           @db.VarChar
-  workflow_previous_stage String?           @db.VarChar
-  workflow_next_stage     String?           @db.VarChar
-  user_action             Json?             @db.JsonB
-  last_action             enum_last_action?
-  last_action_at_date     DateTime?         @db.Timestamptz(6)
-  last_action_by_id       String?           @db.Uuid
-  last_action_by_name     String?           @db.VarChar
-
-  attachments Json? @default("[]") @db.JsonB
-  info        Json? @default("{}") @db.JsonB
-  dimension   Json? @default("[]") @db.JsonB
-
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-  created_by_id String?   @db.Uuid
-  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
-  updated_by_id String?   @db.Uuid
-  deleted_at    DateTime? @db.Timestamptz(6)
-  deleted_by_id String?   @db.Uuid
-
-  tb_customer                 tb_customer               @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tb_ar_invoice_detail        tb_ar_invoice_detail[]
-  tb_ar_invoice_reference     tb_ar_invoice_reference[] @relation("ArInvoiceReferences")
-  tb_ar_invoice_referenced_by tb_ar_invoice_reference[] @relation("ArInvoiceReferencedBy")
-  tb_ar_tax_invoice           tb_ar_tax_invoice?
-  tb_ar_receipt_detail        tb_ar_receipt_detail[]
-
-  @@unique([doc_no, deleted_at], map: "arinvoice_doc_no_u")
-  @@index([customer_id, doc_status], map: "arinvoice_customer_status_idx")
-  @@index([doc_date], map: "arinvoice_doc_date_idx")
-  @@index([due_date], map: "arinvoice_due_date_idx")
-  @@index([gl_jv_id], map: "arinvoice_gl_jv_idx")
-}
-
 // Line items (FRD ar_invoice_detail) — mirrors tb_ap_invoice_detail; cr = revenue, dr = AR.
-model tb_ar_invoice_detail {
-  doc_version   Int     @default(0) @db.Integer
-  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ar_invoice_id String  @db.Uuid
-  sequence_no   Int     @db.Integer
-  group_no      Int     @default(1) @db.Integer // summary-invoice print grouping
-  description   String? @db.VarChar
-
-  // Section 0 — booking & reference
-  reference_info String?   @db.VarChar // 2-line folio / booking / guest text
-  date_from      DateTime? @db.Date
-  date_to        DateTime? @db.Date
-  is_pms_folio   Boolean   @default(false)
-  folio_no       String?   @db.VarChar(50)
-  folio_date     DateTime? @db.Date
-  folio_amount   Decimal?  @db.Decimal(20, 5) // folio balance at import; settle = net_amount (0 < settle ≤ folio_amount, ERR_AR_002)
-
-  unit_id      String? @db.Uuid
-  unit_name    String? @db.VarChar
-  quantity     Decimal @default(1) @db.Decimal(20, 5)
-  unit_price   Decimal @default(0) @db.Decimal(20, 5)
-
-  // Section 1 — discount
-  sub_total_amount     Decimal @default(0) @db.Decimal(20, 5)
-  discount_pct         Decimal @default(0) @db.Decimal(15, 5)
-  discount_amount      Decimal @default(0) @db.Decimal(20, 5)
-  discount_is_override Boolean @default(false)
-  net_amount           Decimal @default(0) @db.Decimal(20, 5)
-
-  // Section 2 — revenue (Cr)
-  cr_chart_of_accounts_id String  @db.Uuid
-  cr_account_code         String? @db.VarChar
-  cr_cost_center_id       String  @db.Uuid // USALI department, required for revenue
-  cr_cost_center_code     String? @db.VarChar
-
-  // Section 3 — output tax 1 (VAT)
-  vat_tax_profile_id       String? @db.Uuid
-  vat_rate                 Decimal @default(0) @db.Decimal(15, 5)
-  vat_amount               Decimal @default(0) @db.Decimal(20, 5)
-  vat_is_override          Boolean @default(false)
-  vat_chart_of_accounts_id String? @db.Uuid // Output VAT Pending
-  vat_cost_center_id       String? @db.Uuid
-
-  // Section 3 — tax 2 (supplementary tax or WHT) ⚠ OI-6
-  tax2_tax_profile_id       String? @db.Uuid
-  tax2_rate                 Decimal @default(0) @db.Decimal(15, 5)
-  tax2_amount               Decimal @default(0) @db.Decimal(20, 5)
-  tax2_is_override          Boolean @default(false)
-  tax2_chart_of_accounts_id String? @db.Uuid
-  tax2_cost_center_id       String? @db.Uuid
-
-  // Section 4 — accounts receivable (Dr)
-  dr_chart_of_accounts_id String  @db.Uuid
-  dr_account_code         String? @db.VarChar
-  dr_cost_center_id       String? @db.Uuid
-
-  total_amount          Decimal @default(0) @db.Decimal(20, 5) // net + vat + tax2
-  unpaid_amount         Decimal @default(0) @db.Decimal(20, 5)
-  base_sub_total_amount Decimal @default(0) @db.Decimal(20, 5)
-  base_discount_amount  Decimal @default(0) @db.Decimal(20, 5)
-  base_net_amount       Decimal @default(0) @db.Decimal(20, 5)
-  base_vat_amount       Decimal @default(0) @db.Decimal(20, 5)
-  base_tax2_amount      Decimal @default(0) @db.Decimal(20, 5)
-  base_total_amount     Decimal @default(0) @db.Decimal(20, 5)
-  base_unpaid_amount    Decimal @default(0) @db.Decimal(20, 5)
-  // *_chart_of_accounts_id -> tb_chart_of_accounts.id ; *_cost_center_id -> tb_cost_center.id ; *_tax_profile_id -> tb_tax_profile.id  (implemented models)
-
-  info      Json? @default("{}") @db.JsonB
-  dimension Json? @default("[]") @db.JsonB
-
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-  created_by_id String?   @db.Uuid
-  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
-  updated_by_id String?   @db.Uuid
-  deleted_at    DateTime? @db.Timestamptz(6)
-  deleted_by_id String?   @db.Uuid
-
-  tb_ar_invoice                  tb_ar_invoice                    @relation(fields: [ar_invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tb_ar_invoice_detail_dimension tb_ar_invoice_detail_dimension[]
-  tb_ar_receipt_detail           tb_ar_receipt_detail[]
-
-  @@unique([ar_invoice_id, sequence_no, deleted_at], map: "arinvoicedetail_seq_u")
-  @@index([ar_invoice_id], map: "arinvoicedetail_invoice_idx")
-  @@index([folio_no], map: "arinvoicedetail_folio_idx")
-}
-
 // 6 analysis dimensions per line (FRD dim_market … dim_channel) — data-driven like AP
-model tb_ar_invoice_detail_dimension {
-  id                    String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ar_invoice_detail_id  String @db.Uuid
-  gl_dimension_id       String @db.Uuid
-  gl_dimension_value_id String @db.Uuid
-  dimension_code        String @db.VarChar(20)
-  value_code            String @db.VarChar(30)
-  // gl_dimension_id -> tb_gl_dimension.id ; gl_dimension_value_id -> tb_gl_dimension_value.id  (implemented models)
-
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-  created_by_id String?   @db.Uuid
-
-  tb_ar_invoice_detail tb_ar_invoice_detail @relation(fields: [ar_invoice_detail_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([ar_invoice_detail_id, gl_dimension_id], map: "arinvoicedetaildimension_u")
-}
-
 // Tab 3 Doc Reference (FRD ar_document_reference): deposits (and per FRD §5.3 CN/DN ⚠ OI-5)
 // applied to an ARIV. Realized FX per PRD §4.2/4.3 (⚠ OI-1 sign, ⚠ OI-2 TFRIC 22).
-model tb_ar_invoice_reference {
-  id                           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ar_invoice_id                String                   @db.Uuid
-  ref_ar_invoice_id            String                   @db.Uuid
-  ref_doc_type                 enum_ar_invoice_doc_type
-  applied_net_amount           Decimal                  @default(0) @db.Decimal(20, 5)
-  applied_vat_amount           Decimal                  @default(0) @db.Decimal(20, 5)
-  applied_amount               Decimal                  @default(0) @db.Decimal(20, 5) // net + vat = total offset
-  base_applied_at_invoice_rate Decimal                  @default(0) @db.Decimal(20, 5)
-  base_applied_at_ref_rate     Decimal                  @default(0) @db.Decimal(20, 5)
-  realized_fx_amount           Decimal                  @default(0) @db.Decimal(20, 5) // > 0 = loss (Dr), < 0 = gain (Cr)
-  remarks                      String?                  @db.VarChar
-
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-  created_by_id String?   @db.Uuid
-
-  tb_ar_invoice     tb_ar_invoice @relation("ArInvoiceReferences", fields: [ar_invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tb_ref_ar_invoice tb_ar_invoice @relation("ArInvoiceReferencedBy", fields: [ref_ar_invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@unique([ar_invoice_id, ref_ar_invoice_id], map: "arinvoicereference_u")
-  @@index([ref_ar_invoice_id], map: "arinvoicereference_ref_idx")
-}
-
 // Output tax register (FRD ar_tax_invoice) — mirrors tb_ap_invoice_tax. One row per issuing
 // document: an AR document (TXIV/TXDN/TXCN/TXDP) or a receipt (TXRC ⚠ OI-5); exactly one FK set.
-model tb_ar_tax_invoice {
-  doc_version      Int                         @default(0) @db.Integer
-  id               String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ar_invoice_id    String?                     @unique(map: "artaxinvoice_invoice_u") @db.Uuid
-  ar_receipt_id    String?                     @unique(map: "artaxinvoice_receipt_u") @db.Uuid
-  tax_prefix       String                      @db.VarChar(10) // TXIV / TXDN / TXCN / TXDP / TXRC
-  tax_invoice_no   String                      @db.VarChar(30) // generated on submit, never on save draft (ERR_AR_006 on collision)
-  tax_invoice_date DateTime                    @db.Date
-  filing_month     Int?                        @db.Integer // FRD tax_period MM/YYYY
-  filing_year      Int?                        @db.Integer
-  tax_status       enum_ar_tax_invoice_status  @default(pending)
-
-  customer_registered_name String  @db.VarChar
-  customer_tax_no          String? @db.VarChar(13)
-  customer_branch_no       String? @db.VarChar(5)
-  address_line1            String? @db.VarChar
-  address_line2            String? @db.VarChar
-  province                 String? @db.VarChar
-  postal_code              String? @db.VarChar(10)
-
-  base_amount  Decimal @default(0) @db.Decimal(20, 5) // THB
-  vat_rate     Decimal @default(7) @db.Decimal(15, 5)
-  vat_amount   Decimal @default(0) @db.Decimal(20, 5) // THB
-  total_amount Decimal @default(0) @db.Decimal(20, 5) // THB
-
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-  created_by_id String?   @db.Uuid
-  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
-  updated_by_id String?   @db.Uuid
-  deleted_at    DateTime? @db.Timestamptz(6)
-  deleted_by_id String?   @db.Uuid
-
-  tb_ar_invoice tb_ar_invoice? @relation(fields: [ar_invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tb_ar_receipt tb_ar_receipt? @relation(fields: [ar_receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([tax_invoice_no, deleted_at], map: "artaxinvoice_no_u")
-  @@index([tax_invoice_date], map: "artaxinvoice_date_idx")
-  @@index([filing_year, filing_month], map: "artaxinvoice_period_idx")
-}
-
 // ⚠ OI-4: Receipt (ARRC) as its own document — mirrors tb_ap_payment. Created from an invoice's
 // "Get Receipt" or standalone; allocates to posted AR document lines.
-model tb_ar_receipt {
-  doc_version Int    @default(0) @db.Integer
-  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
-  doc_no        String                 @db.VarChar(30) // ARRC{YY}{MM}{0000}
-  doc_status    enum_ar_receipt_status @default(draft)
-  receipt_date  DateTime               @db.Date // GL date
-  received_date DateTime?              @db.Date // value date on bank statement
-  description   String?                @db.VarChar
-  reference_no  String?                @db.VarChar(100)
-
-  customer_id   String  @db.Uuid
-  customer_code String  @db.VarChar
-  customer_name String  @db.VarChar
-  payer_name    String? @db.VarChar // name on cheque / transfer when not the customer
-
-  bank_account_id   String                  @db.Uuid
-  bank_account_code String                  @db.VarChar(20)
-  bank_account_name String                  @db.VarChar
-  receipt_method    enum_ar_receipt_method  @default(bank_transfer)
-  cheque_no         String?                 @db.VarChar(50)
-  cheque_date       DateTime?               @db.Date
-  // bank_account_id -> tb_bank_account.id  (implemented model)
-
-  is_tax_invoice Boolean @default(false) // TXRC issued at receipt (services) → tb_ar_tax_invoice
-
-  currency_id        String  @db.Uuid
-  currency_code      String  @db.VarChar(3)
-  exchange_rate      Decimal @default(1) @db.Decimal(15, 5)
-  base_currency_id   String  @db.Uuid
-  base_currency_code String  @db.VarChar(3)
-
-  total_applied_amount      Decimal @default(0) @db.Decimal(20, 5) // Σ detail.applied_amount
-  total_wht_amount          Decimal @default(0) @db.Decimal(20, 5) // WHT deducted by customer (50 ทวิ received)
-  total_charge_amount       Decimal @default(0) @db.Decimal(20, 5) // bank charges / short payment written off
-  net_received_amount       Decimal @default(0) @db.Decimal(20, 5) // applied − wht − charge = bank Dr
-  base_total_applied_amount Decimal @default(0) @db.Decimal(20, 5)
-  base_total_wht_amount     Decimal @default(0) @db.Decimal(20, 5)
-  base_total_charge_amount  Decimal @default(0) @db.Decimal(20, 5)
-  base_net_received_amount  Decimal @default(0) @db.Decimal(20, 5)
-  realized_fx_amount        Decimal @default(0) @db.Decimal(20, 5) // base@receipt − base@invoice; > 0 = gain (Cr)
-
-  gl_jv_id      String?   @db.Uuid
-  gl_jv_no      String?   @db.VarChar
-  posted_at     DateTime? @db.Timestamptz(6)
-  posted_by_id  String?   @db.Uuid
-  void_at       DateTime? @db.Timestamptz(6)
-  void_by_id    String?   @db.Uuid
-  void_reason   String?   @db.VarChar
-  void_gl_jv_id String?   @db.Uuid
-  // gl_jv_id -> tb_gl_jv_header.id  (implemented model)
-
-  workflow_id             String?           @db.Uuid
-  workflow_name           String?           @db.VarChar
-  workflow_history        Json?             @default("[]") @db.JsonB
-  workflow_current_stage  String?           @db.VarChar
-  workflow_previous_stage String?           @db.VarChar
-  workflow_next_stage     String?           @db.VarChar
-  user_action             Json?             @db.JsonB
-  last_action             enum_last_action?
-  last_action_at_date     DateTime?         @db.Timestamptz(6)
-  last_action_by_id       String?           @db.Uuid
-  last_action_by_name     String?           @db.VarChar
-
-  attachments Json? @default("[]") @db.JsonB
-  info        Json? @default("{}") @db.JsonB
-  dimension   Json? @default("[]") @db.JsonB
-
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-  created_by_id String?   @db.Uuid
-  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
-  updated_by_id String?   @db.Uuid
-  deleted_at    DateTime? @db.Timestamptz(6)
-  deleted_by_id String?   @db.Uuid
-
-  tb_customer                tb_customer                  @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tb_ar_receipt_detail       tb_ar_receipt_detail[]
-  tb_ar_receipt_wht          tb_ar_receipt_wht[]
-  tb_ar_tax_invoice          tb_ar_tax_invoice?
-  tb_bank_reconciliation_item tb_bank_reconciliation_item[]
-
-  @@unique([doc_no, deleted_at], map: "arreceipt_doc_no_u")
-  @@index([customer_id, doc_status], map: "arreceipt_customer_status_idx")
-  @@index([receipt_date], map: "arreceipt_date_idx")
-}
-
 // Line-level allocation — mirrors tb_ap_payment_detail (credit_note lines carry a negative amount)
-model tb_ar_receipt_detail {
-  id                           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ar_receipt_id                String                   @db.Uuid
-  ar_invoice_id                String                   @db.Uuid
-  ar_invoice_detail_id         String                   @db.Uuid
-  doc_type                     enum_ar_invoice_doc_type
-  applied_amount               Decimal                  @default(0) @db.Decimal(20, 5)
-  invoice_exchange_rate        Decimal                  @default(1) @db.Decimal(15, 5)
-  base_applied_at_invoice_rate Decimal                  @default(0) @db.Decimal(20, 5)
-  base_applied_at_receipt_rate Decimal                  @default(0) @db.Decimal(20, 5)
-  realized_fx_amount           Decimal                  @default(0) @db.Decimal(20, 5)
-
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-  created_by_id String?   @db.Uuid
-
-  tb_ar_receipt        tb_ar_receipt        @relation(fields: [ar_receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tb_ar_invoice        tb_ar_invoice        @relation(fields: [ar_invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tb_ar_invoice_detail tb_ar_invoice_detail @relation(fields: [ar_invoice_detail_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@unique([ar_receipt_id, ar_invoice_detail_id], map: "arreceiptdetail_u")
-  @@index([ar_invoice_detail_id], map: "arreceiptdetail_invoice_detail_idx")
-}
-
 // WHT certificate (50 ทวิ) received from the customer — mirrors tb_ap_payment_wht; posts Dr WHT receivable
-model tb_ar_receipt_wht {
-  id                   String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ar_receipt_id        String                         @db.Uuid
-  wht_certificate_no   String?                        @db.VarChar(50) // customer's certificate number
-  wht_certificate_date DateTime?                      @db.Date
-  wht_tax_profile_id   String?                        @db.Uuid
-  wht_tax_profile_name String?                        @db.VarChar
-  pnd_form             enum_tax_profile_wht_pnd_form?
-  income_type          String?                        @db.VarChar
-  base_amount          Decimal                        @default(0) @db.Decimal(20, 5)
-  wht_rate             Decimal                        @default(0) @db.Decimal(15, 5)
-  wht_amount           Decimal                        @default(0) @db.Decimal(20, 5)
-  is_override          Boolean                        @default(false)
-  chart_of_accounts_id String                         @db.Uuid // WHT receivable (gl_setting.wht_receivable_account_id)
-  // wht_tax_profile_id -> tb_tax_profile.id ; chart_of_accounts_id -> tb_chart_of_accounts.id  (implemented models)
-
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-  created_by_id String?   @db.Uuid
-
-  tb_ar_receipt tb_ar_receipt @relation(fields: [ar_receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([ar_receipt_id], map: "arreceiptwht_receipt_idx")
-}
-
 // ---- Cash & Bank (DRAFT) -----------------------------------------------------
 
 model tb_petty_cash_fund {
