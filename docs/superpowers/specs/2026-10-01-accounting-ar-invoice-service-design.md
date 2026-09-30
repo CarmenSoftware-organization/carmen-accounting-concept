@@ -15,7 +15,7 @@ review FRD v1.07 ระบุว่า OI-1..3 ต้องได้คำตอ
 | หัวข้อ | ตัดสิน (ผู้ใช้ยืนยัน 2026-10-01) | เหตุผล |
 |---|---|---|
 | ขอบเขต | customer master + ARIV/ARDN/ARCN แบบ manual | ไม่ติด OI-1/2; ARDP, Receipt, PMS folio แยกเป็น spec ถัดไป |
-| หักกลบ CN | ARIV อ้าง ARCN ผ่าน Doc Reference แบบ AP §6.6 ไม่มี GL เพิ่ม | ยังไม่มี Receipt จึงต้องมีทางให้ CN ลดยอดค้างของ invoice ที่เจาะจง |
+| หักกลบ CN | ARIV อ้าง ARCN ผ่าน Doc Reference แบบ AP ที่ implement จริง (rate ต้องเท่ากัน, ลงเฉพาะคู่บรรทัดเศษปัดสตางค์) | ยังไม่มี Receipt จึงต้องมีทางให้ CN ลดยอดค้างของ invoice ที่เจาะจง |
 | เลขใบกำกับภาษี | ออกตอน post (อนุมัติขั้นสุดท้าย) | send back / reject ก่อน post จะไม่เผาเลข เลขใบกำกับต่อเนื่อง |
 | แนวทางโค้ด | module ใหม่ตามแบบ AP (แนวทาง A) ไม่ extract แกนร่วม | AR ต่างจาก AP มาก (tax2, discount %, Dr/Cr กลับข้าง, เลขใบกำกับของเราเอง) และ AP ยังรอ verify บน BU จริง; พิจารณา extract เมื่อมีสองตัวอย่างที่รันจริงแล้ว |
 
@@ -67,6 +67,7 @@ packages/
 
 - `gl-subledger-posting.interface.ts`: `SubledgerSourceRefType = 'ap_invoice' | 'ap_payment' | 'ar_invoice'`
 - `postFromSource`: prefix เริ่มต้นเลือกตาม `input.source` — `ap` → `ap_jv_prefix_id`, `ar` → `ar_jv_prefix_id` แล้ว fallback `auto_jv_prefix_id`; error `GL_SETTING_ACCOUNT_MISSING` ส่ง `key` ตาม source ที่ใช้ ลำดับอื่นทั้งหมดไม่เปลี่ยน
+- ใช้ key เดิม `realized_fx_gain_account_id` / `realized_fx_loss_account_id` สำหรับเศษปัด CN (§9)
 - `app-config.service.ts` `GlSettingSchema` เพิ่ม `ar_control_account_id`, `output_vat_account_id`, `ar_jv_prefix_id` (uuid optional)
 - migration `accounting_ar_service_enums` (สร้างแบบ AR schema spec §5 บน scratch DB, ห้าม `migrate dev`):
   - `ALTER TYPE "enum_workflow_type" ADD VALUE 'ar_invoice';`
@@ -163,19 +164,21 @@ base_total       = base_net + base_vat + base_tax2
 
 - บรรทัดที่ยอด 0 ไม่ส่ง; dimension ของบรรทัด AR copy ไปบรรทัด revenue
 - base สมดุลโดยโครงสร้าง (base_total = ผลรวมส่วนที่ปัดแล้ว) facade ยังตรวจ `GL_JV_NOT_BALANCED`
-- reference ถึง ARCN ไม่เพิ่มบรรทัด JV (§9)
+- reference ถึง ARCN ไม่มีบรรทัดตัดยอด มีเฉพาะคู่บรรทัดเศษปัดสกุลฐาน (§9)
 
 ---
 
 ## 9. Doc Reference — ARIV หักกลบ ARCN
 
-ทำตาม `applyReferences` / `planUnpaidReduction` / void restore ใน `ap-invoice.posting.ts`
+ทำตาม `applyReferences` / `planUnpaidReduction` / `buildCreditNoteRoundingJvLines` / void restore ใน `ap-invoice.posting.ts` + `ap-invoice.logic.ts` (พฤติกรรม AP ที่ implement จริง ซึ่งละเอียดกว่า AP spec §6.6)
 
 - ใช้ได้เฉพาะ `doc_type = invoice`; ใบที่อ้างต้องเป็น `credit_note` → อื่นๆ `AR_REFERENCE_TYPE_NOT_ALLOWED`; ต้อง `posted` และไม่ถูกลบ → `AR_REFERENCE_NOT_POSTED`; ลูกค้าและสกุลเงินเดียวกัน → `AR_CUSTOMER_CURRENCY_MISMATCH` (ERR_AR_004)
+- `exchange_rate` ของ CN ต้องเท่ากับของ ARIV พอดี → `AR_REFERENCE_RATE_MISMATCH` (CN อัตราต่างให้ไปหักใน Receipt ภายหลัง)
 - ยอดที่อ้างได้ = `min(total_amount − reference_applied_amount, outstanding_amount)` ของ CN; `0 < applied ≤ ยอดที่อ้างได้` และ `Σ applied ≤ total_amount` ของ ARIV → ไม่เช่นนั้น `AR_REFERENCE_OVER_APPLIED`
 - `applied_net_amount` / `applied_vat_amount` แบ่งตามสัดส่วน `(net + tax2) : vat` ของ CN เพื่อแสดงผล; `applied_amount = applied_net + applied_vat`
 - ตรวจตอน create/update/submit และตรวจซ้ำหลัง lock ตอน post
-- ตอน post: `SELECT ... FOR UPDATE` CN → `reference_applied_amount += applied`, ลด `unpaid` บรรทัด CN ตาม plan, คำนวณ `outstanding_amount` CN ใหม่; ARIV ลด unpaid ตามลำดับบรรทัด; เก็บ `base_applied_at_invoice_rate` / `base_applied_at_ref_rate`; `realized_fx_amount = 0`; **ไม่มี GL**
+- ตอน post: `SELECT ... FOR UPDATE` CN → `reference_applied_amount += applied`, ลด `unpaid` บรรทัด CN ตาม plan, คำนวณ `outstanding_amount` CN ใหม่; ARIV ลด unpaid ตามลำดับบรรทัด; เก็บ `base_applied_at_invoice_rate` / `base_applied_at_ref_rate`; `realized_fx_amount = 0`
+- GL: ไม่มีบรรทัดตัดยอด แต่เพราะแต่ละฝั่งหักยอดฐานที่ปัดทีละส่วน ยอดฐานที่ลด `I` (ARIV) กับ `C` (CN) อาจต่างกันระดับสตางค์ AR เป็นบัญชีด้านเดบิตและ CN มียอดด้านเครดิต ยอดเดบิตสุทธิของ AR ใน subledger จึงขยับ `C − I` ให้ลงคู่บรรทัดสกุลฐาน (rate 1) ต่อ reference: `diff = C − I > 0` → Dr AR (บัญชี/cc ของบรรทัด CN) / Cr `realized_fx_gain_account_id`; `diff < 0` → Cr AR / Dr `realized_fx_loss_account_id`; `diff = 0` → ไม่ลง (เครื่องหมายกลับกับ AP) บัญชี FX ต้องมีเฉพาะด้านที่ใช้ ไม่งั้น `GL_SETTING_ACCOUNT_MISSING`
 - `reference-candidates(customer_id, currency_id, exclude_invoice_id?)` คืน ARCN ที่ยอดที่อ้างได้ > 0
 
 ---
@@ -245,7 +248,7 @@ base_total       = base_net + base_vat + base_tax2
 | AR_INVOICE_IMMUTABLE | สถานะไม่อนุญาต หรือ `doc_version` ไม่ตรง |
 | AR_SOURCE_NOT_SUPPORTED / AR_DISCOUNT_INVALID / AR_TAX2_WHT_NOT_ALLOWED | §7 |
 | AR_ACCOUNT_NOT_POSTABLE / AR_COST_CENTER_REQUIRED | §7.2 |
-| AR_CUSTOMER_CURRENCY_MISMATCH / AR_REFERENCE_TYPE_NOT_ALLOWED / AR_REFERENCE_NOT_POSTED / AR_REFERENCE_OVER_APPLIED | §9 |
+| AR_CUSTOMER_CURRENCY_MISMATCH / AR_REFERENCE_TYPE_NOT_ALLOWED / AR_REFERENCE_NOT_POSTED / AR_REFERENCE_RATE_MISMATCH / AR_REFERENCE_OVER_APPLIED | §9 |
 | AR_TAX_INVOICE_NO_CONFLICT / AR_TAX_INVOICE_MIXED_VAT_RATE | §10 |
 | AR_INVOICE_IS_REFERENCED / AR_INVOICE_HAS_RECEIPT | §11 |
 
@@ -275,6 +278,7 @@ migration ADD VALUE ปลอดภัยต่อโค้ดเดิม; ห�
 | เลขใบกำกับภาษี | ออกตอน Submit | ออกตอน post |
 | `ref_doc_type` (OI-5.2) | ARDP / ARCN / ARDN | ARCN เท่านั้น (ARDP รอ OI-1/2, ARDN ไม่ใช้หักกลบ) |
 | สถานะใบที่อ้างได้ (OI-5.5) | Submitted หรือ Posted | Posted เท่านั้น |
+| อัตราของ CN ที่อ้าง | ไม่ระบุ | ต้องเท่ากับ invoice |
 | ARCN ยอดติดลบ (OI-5.6) | ป้อนติดลบ | เก็บบวก กลับข้างบัญชีใน JV |
 | Tax 2 (OI-6) | ภาษีเสริมหรือ WHT | ภาษีเสริมเท่านั้น (profile `vat`) |
 | VAT07_INC | มี | ยังไม่รองรับ (tax profile ไม่มี flag inclusive) |
@@ -297,7 +301,7 @@ migration ADD VALUE ปลอดภัยต่อโค้ดเดิม; ห�
   2. post AP invoice เดิม 1 ใบ → JV ใช้ prefix `ap_jv_prefix_id` เหมือนเดิม
   3. ARIV มี discount %, VAT, tax2, `is_tax_invoice` → submit → send back → submit → approve จนสุด → ตรวจ JV (`source = ar`, source_ref, dims), `tb_ar_tax_invoice` (TXIV เลขแรกของเดือน, ยอด THB), unpaid/outstanding; ยืนยันว่า send back ไม่เผาเลข
   4. approve ซ้ำ → ไม่มี JV ใบที่สอง
-  5. ARCN → post (TXCN ยอดลบ) → ARIV ใหม่อ้าง CN บางส่วน → post → ตรวจ unpaid/outstanding ทั้งสองใบ และ JV ของ ARIV ไม่มีบรรทัด reference
+  5. ARCN → post (TXCN ยอดลบ) → ARIV ใหม่อ้าง CN บางส่วน → post → ตรวจ unpaid/outstanding ทั้งสองใบ และ JV ของ ARIV ไม่มีบรรทัดตัดยอด (มีแค่คู่เศษปัดถ้า diff ≠ 0); CN อัตราต่าง → `AR_REFERENCE_RATE_MISMATCH`
   6. void ARCN ที่ถูกอ้าง → `AR_INVOICE_IS_REFERENCED`; void ARIV ข้อ 5 → reversal JV, tax_status void, CN ได้ยอดคืน; จากนั้น void ARCN ได้
   7. ปิด period แล้ว approve ใบค้าง → `GL_PERIOD_NOT_OPEN`; tax2 profile ประเภท wht → `AR_TAX2_WHT_NOT_ALLOWED`; VAT 2 rate + tax invoice → `AR_TAX_INVOICE_MIXED_VAT_RATE`; delete customer ที่มีใบค้าง → `CUSTOMER_IN_USE`
 
