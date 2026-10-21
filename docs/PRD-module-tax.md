@@ -1,4 +1,4 @@
-# Carmen Cloud ERP — Tax Management Module
+# Carmen Blue — Tax Management Module
 
 **Module Code:** TAX  
 **Version:** 1.0  

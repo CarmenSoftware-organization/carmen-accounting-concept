@@ -1,4 +1,4 @@
-# Carmen Cloud ERP — Accounts Receivable (AR) Module
+# Carmen Blue — Accounts Receivable (AR) Module
 
 **Module Code:** AR  
 **Version:** 1.1  

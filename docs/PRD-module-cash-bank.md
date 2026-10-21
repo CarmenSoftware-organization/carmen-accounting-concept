@@ -1,4 +1,4 @@
-# Carmen Cloud ERP — Cash & Bank Management Module
+# Carmen Blue — Cash & Bank Management Module
 
 **Module Code:** CB  
 **Version:** 1.0  

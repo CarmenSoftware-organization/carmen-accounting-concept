@@ -1,4 +1,4 @@
-# Carmen Cloud ERP — Period End / Closing Module
+# Carmen Blue — Period End / Closing Module
 
 **Module Code:** PE  
 **Version:** 1.0  

@@ -1,4 +1,4 @@
-# Carmen Cloud ERP — Financial Reporting Module
+# Carmen Blue — Financial Reporting Module
 
 **Module Code:** RPT  
 **Version:** 1.0  
@@ -27,7 +27,7 @@ The Financial Reporting module produces all accounting reports required for mana
 
 ### 1.2 Integration Architecture
 
-Reports are generated through the existing Carmen reporting stack:
+Reports are generated through the existing Carmen Blue reporting stack:
 
 ```
 ┌──────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────┐

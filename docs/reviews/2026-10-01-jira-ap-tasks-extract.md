@@ -275,7 +275,7 @@ vendor ที่มีอยู่แล้วในเอกสาร AP เท
 
 **กฎที่ห้ามละเมิด**
 - อ้าง AP/hotel_ap_erp_mockup_v4_4_3.html — option list ของ field 'Vendor *' (C003, CP001, LOT02, SINO04) และ h4 'Vendor Tax Profile' (Vendor Registered Name (TH/EN), Tax Registration ID (13 Digits), Branch No. (5 Digits), Registered Billing Address) — ยังไม่มี FRD ยืนยัน
-- accounting-foundation.md §3 Shared Carmen data ระบุหลักการไม่สร้าง master data ซ้ำ แต่ Vendor ไม่อยู่ในรายการ shared data หรือ Accounting-owned data ที่ Foundation ระบุไว้เลยทั้งสองฝั่ง (§3, §4) — การเป็นเจ้าของ vendor master เต็มรูปแบบเป็น open question แยกไว้ที่ spike.ap-vendor-master-ownership story นี้ทำเฉพาะการเลือก/แสดง vendor ที่มีอยู่แล้วเท่านั้น
+- accounting-foundation.md §3 Shared Carmen Blue data ระบุหลักการไม่สร้าง master data ซ้ำ แต่ Vendor ไม่อยู่ในรายการ shared data หรือ Accounting-owned data ที่ Foundation ระบุไว้เลยทั้งสองฝั่ง (§3, §4) — การเป็นเจ้าของ vendor master เต็มรูปแบบเป็น open question แยกไว้ที่ spike.ap-vendor-master-ownership story นี้ทำเฉพาะการเลือก/แสดง vendor ที่มีอยู่แล้วเท่านั้น
 
 ### CA-181 — [FE] AP Invoice — ฟอร์มหัวเอกสารและ action bar
 
@@ -310,7 +310,7 @@ acceptance ของ story นี้ เพราะ element list มีแค�
 **กฎที่ห้ามละเมิด**
 - อ้าง AP/Invoice/hotel_ap_erp_Invoice_mockup_v4_4_8.html — ยังไม่มี FRD ยืนยัน
 - accounting-foundation.md §8 Status model — ห้ามเพิ่ม approved/rejected เป็น document/JV lifecycle status; Approval/return/reject ต้องเป็น workflow action/history ที่แยกแกนจาก lifecycle status ของเอกสาร
-- accounting-foundation.md §3 Shared Carmen data — Business Unit, Currency และ Vendor-related lookup เป็น master data กลาง ห้ามสร้างสำเนาใหม่ในหน้านี้
+- accounting-foundation.md §3 Shared Carmen Blue data — Business Unit, Currency และ Vendor-related lookup เป็น master data กลาง ห้ามสร้างสำเนาใหม่ในหน้านี้
 - ไม่แต่งพฤติกรรมของปุ่ม AI (OCR) และ Allocate Tax เพราะ mockup มีแค่ชื่อปุ่ม ไม่มี field หรือ flow ยืนยัน
 
 ### CA-182 — [BE] AP Invoice — บันทึกหัวเอกสารและออกเลขที่เอกสาร
@@ -372,7 +372,7 @@ ap-invoice.md หัวข้อ "ไม่แตกเพราะซ้ำ")
 
 **กฎที่ห้ามละเมิด**
 - อ้าง AP/Invoice/hotel_ap_erp_Invoice_mockup_v4_4_8.html — ยังไม่มี FRD ยืนยัน
-- accounting-foundation.md §3 Shared Carmen data — Department เป็น master data กลาง ใช้ FK ไม่สร้างสำเนาใหม่
+- accounting-foundation.md §3 Shared Carmen Blue data — Department เป็น master data กลาง ใช้ FK ไม่สร้างสำเนาใหม่
 - ไม่รวม Tax Profile 1 (VAT) / Tax Profile 2 (WHT) ในบรรทัดนี้ — ซ้ำกับ tax.fe.dialog ของ epic tax-wht (ดูรายละเอียดใน ap-invoice.md)
 - ไม่รวมปุ่ม Dimension / ALL DIMENSIONS ในบรรทัดนี้ — ซ้ำกับหลักฐานที่ spike.dimension-source เดิมใช้อยู่แล้ว (ดูรายละเอียดใน ap-invoice.md)
 
@@ -597,7 +597,7 @@ hardcode ตัวเลือกไว้ในโค้ด (BBL/SCB/KBANK เ�
 
 **กฎที่ห้ามละเมิด**
 - อ้าง carmen_cloud_erp_ap_payment_module_v2_16.html — h3 Payment Methods & Multi-Bank Allocation, ปุ่ม Add Payment, th Payment Method & Bank/Pay to (Payee)/Ref. No./Cheque No./Account Code/Cost Center/Dimensions, modal Add Payment Method (label Payment Type (Master Table), option BBL/SCB/KBANK, Pay to (Payee Name), Ref. No./Cheque No., Pay Amt.) — ยังไม่มี FRD ยืนยัน
-- accounting-foundation.md §3 Shared Carmen data — master data ที่ reuse ผ่าน FK ไม่ใช่ของ Accounting เป็นเจ้าของ; mockup เองระบุ Payment Type ว่าเป็น 'Master Table' จึงยึดหลักเดียวกัน
+- accounting-foundation.md §3 Shared Carmen Blue data — master data ที่ reuse ผ่าน FK ไม่ใช่ของ Accounting เป็นเจ้าของ; mockup เองระบุ Payment Type ว่าเป็น 'Master Table' จึงยึดหลักเดียวกัน
 - accounting-foundation.md §4 Decimal and rounding contract — amount เป็น decimal string
 - ไม่ยืนยันกฎว่าผลรวม Pay Amt. ของทุก method ต้องเท่ากับยอดที่ต้องจ่ายพอดี เพราะ mockup ไม่มีคอลัมน์ยอดรวม/คงเหลือให้เห็น — ทิ้งเป็นจุดเปิดใน backlog ถ้ามี FRD ยืนยันภายหลัง
 
@@ -794,7 +794,7 @@ hotel_ap_erp_Other_Dashboard_mockup_v4_4_3.html บรรทัด 77-81 — ส
 
 **กฎที่ห้ามละเมิด**
 - อ้าง hotel_ap_erp_Aging_Dashboard_mockup_v4_4_4.html บรรทัด 19-23 และ hotel_ap_erp_Other_Dashboard_mockup_v4_4_3.html บรรทัด 77-81 — ยังไม่มี FRD ยืนยัน
-- อ้าง accounting-foundation.md §4 Reuse Existing Carmen Services (i18n/design/DataGrid — Reuse)
+- อ้าง accounting-foundation.md §4 Reuse Existing Carmen Blue Services (i18n/design/DataGrid — Reuse)
 
 ### CA-197 — [BE] AP Dashboard — query endpoint รายการ AP document ที่รออนุมัติ (feed Pending Approvals Queue)
 
@@ -851,7 +851,7 @@ Queue" บน Hotel AP Dashboard ใช้ข้อมูลจาก ap.dashboa
 
 **กฎที่ห้ามละเมิด**
 - อ้าง hotel_ap_erp_Aging_Dashboard_mockup_v4_4_4.html บรรทัด 24 และ hotel_ap_erp_Other_Dashboard_mockup_v4_4_3.html บรรทัด 82 — ยังไม่มี FRD ยืนยัน
-- อ้าง accounting-foundation.md §4 Reuse Existing Carmen Services (i18n/design/ DataGrid — Reuse)
+- อ้าง accounting-foundation.md §4 Reuse Existing Carmen Blue Services (i18n/design/ DataGrid — Reuse)
 
 ### CA-199 — [BE] AP Dashboard — query/aggregation endpoint ของ Tax Reconciliation & VAT ตาม tax status
 
@@ -965,5 +965,5 @@ Audit Tracker" บน Hotel AP Dashboard ใช้ข้อมูลจาก ap
 
 **กฎที่ห้ามละเมิด**
 - อ้าง hotel_ap_erp_Aging_Dashboard_mockup_v4_4_4.html บรรทัด 26 และ hotel_ap_erp_Other_Dashboard_mockup_v4_4_3.html บรรทัด 84, 279-280 — ยังไม่มี FRD ยืนยัน
-- อ้าง accounting-foundation.md §4 Reuse Existing Carmen Services (i18n/design/ DataGrid — Reuse)
+- อ้าง accounting-foundation.md §4 Reuse Existing Carmen Blue Services (i18n/design/ DataGrid — Reuse)
 

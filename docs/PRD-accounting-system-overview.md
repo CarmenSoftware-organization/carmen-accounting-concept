@@ -1,6 +1,6 @@
-# Carmen Cloud ERP — Accounting System PRD
+# Carmen Blue — Accounting System PRD
 
-**Product:** Carmen Cloud ERP — Accounting Module  
+**Product:** Carmen Blue — Accounting Module  
 **Version:** 1.1  
 **Last Updated:** 2026-09-23 (architecture aligned with the implemented `micro-business` design)  
 **Scope:** Full-spectrum Accounting System for Hospitality Industry  
@@ -10,7 +10,7 @@
 
 ## 1. Executive Summary
 
-The Carmen Cloud ERP Accounting System is a comprehensive, multi-module accounting platform purpose-built for the hospitality industry. It extends the existing Carmen ERP ecosystem — which currently covers procurement and inventory management — with full financial accounting capabilities.
+The Carmen Blue Accounting System is a comprehensive, multi-module accounting platform purpose-built for the hospitality industry. It extends the existing Carmen Blue ecosystem — which currently covers procurement and inventory management — with full financial accounting capabilities.
 
 This system is designed for **hotels, resorts, and restaurant chains** operating in Thailand and internationally, providing:
 
@@ -41,7 +41,7 @@ The Accounting System comprises **10 functional modules**:
 
 ## 2. System Architecture
 
-### 2.1 Integration into Carmen ERP Platform
+### 2.1 Integration into Carmen Blue
 
 The Accounting System is exposed through **`backend-gateway`** and implemented **inside the existing `micro-business` service** of `carmen-turborepo-backend-v2`, next to procurement, inventory and master data. There is no separate accounting microservice (decision 2026-09-23): the GL, the workflow engine, running-code numbering and tenant context already live in `micro-business`, AP must join vendor/PO/GRN data in the same tenant database, and the platform has no event bus to decouple a second service.
 
@@ -88,14 +88,14 @@ The Accounting System is exposed through **`backend-gateway`** and implemented *
 | ORM | Prisma | `prisma-shared-schema-platform` + `prisma-shared-schema-tenant` |
 | Database | PostgreSQL | Platform schema (cross-tenant) + one tenant schema per BU |
 | Communication | HTTP-as-RPC | `@repo/nest-http-transport`, `@MessagePattern`, generated `@repo/rpc-contract`; synchronous, no message queue |
-| Authentication | Keycloak (OIDC/JWT) | Shared with Carmen platform |
+| Authentication | Keycloak (OIDC/JWT) | Shared with Carmen Blue platform |
 | File Storage | MinIO via `micro-file` | Attachments as `fileToken` arrays on documents |
 | Scheduled jobs | `micro-cronjobs` | e.g. GL `run-due` for scheduled posts and auto-reversal |
 | Reporting | FastReport .NET (.frx) | Via existing `micro-report` / `report-render` services |
 
 ### 2.3 Multi-Tenancy Model
 
-Accounting follows the same model as the rest of Carmen ERP:
+Accounting follows the same model as the rest of Carmen Blue:
 
 - **Platform Schema** (shared): Cluster configuration, business unit setup (incl. base currency), user management, application roles, module licenses
 - **Tenant Schema** (per-BU): All accounting transactions, master data, tax records, period controls — `TenantContextRunner` resolves the BU's schema from `bu_code` on every RPC call
@@ -379,7 +379,7 @@ The following master data entities are **prerequisites** for the Accounting Syst
 
 ### 6.5 Vendor & Customer Master
 
-- Vendor master: used by AP module (existing in Carmen procurement)
+- Vendor master: used by AP module (existing in Carmen Blue procurement)
 - Customer master: **new** for AR module — guest accounts, corporate clients, travel agents
 - Each master record defines: default currency, credit terms, tax profile, GL account mapping — `tb_vendor` now carries `default_currency_*`, `credit_term_*` and `ap_chart_of_accounts_id` as AP defaults
 
