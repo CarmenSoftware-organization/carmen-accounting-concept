@@ -1,6 +1,6 @@
-# Carmen Cloud ERP — Accounting System
+# Carmen Blue — Accounting System
 
-> Comprehensive accounting platform for the hospitality industry, built as part of the [Carmen Cloud ERP](../PRD-SYSTEM-RELATIONS.md) ecosystem.
+> Comprehensive accounting platform for the hospitality industry, built as part of the [Carmen Blue](../PRD-SYSTEM-RELATIONS.md) ecosystem.
 
 [![USALI 12th Edition](https://img.shields.io/badge/USALI-12th%20Edition-blue)]()
 [![TFRS Compliant](https://img.shields.io/badge/TFRS-Compliant-green)]()
@@ -10,7 +10,7 @@
 
 ## Overview
 
-The Carmen Accounting System is a full-spectrum, multi-module accounting platform purpose-built for **hotels, resorts, and restaurant chains**. It is implemented inside the existing `micro-business` service of [`carmen-turborepo-backend-v2`](../carmen-turborepo-backend-v2) (`apps/micro-business/src/gl`, `src/ap`, …) and exposed through `backend-gateway`, providing:
+The Carmen Blue Accounting System is a full-spectrum, multi-module accounting platform purpose-built for **hotels, resorts, and restaurant chains**. It is implemented inside the existing `micro-business` service of [`carmen-turborepo-backend-v2`](../carmen-turborepo-backend-v2) (`apps/micro-business/src/gl`, `src/ap`, …) and exposed through `backend-gateway`, providing:
 
 - **USALI 12th Edition** departmental accounting and reporting
 - **TFRS / Thai GAAP** statutory compliance
@@ -21,7 +21,7 @@ The Carmen Accounting System is a full-spectrum, multi-module accounting platfor
 ## Architecture
 
 ```text
-Carmen ERP Platform
+Carmen Blue
 ├── React SPA (Vite, React 19)          ← Frontend
 └── carmen-turborepo-backend-v2         ← NestJS 11 monorepo (Bun, Turborepo)
     ├── backend-gateway                 ← Single HTTP entry point, Keycloak auth, HTTP-as-RPC to services
@@ -131,4 +131,4 @@ carmen-accounting-concept/
 
 ## License
 
-Proprietary — Carmen Software
+Proprietary — CarmenSoftware

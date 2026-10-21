@@ -1,4 +1,4 @@
-# Carmen Cloud ERP — Inter-company / Multi-property Module
+# Carmen Blue — Inter-company / Multi-property Module
 
 **Module Code:** IC  
 **Version:** 1.0  

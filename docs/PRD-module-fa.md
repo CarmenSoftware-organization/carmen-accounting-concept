@@ -1,4 +1,4 @@
-# Carmen Cloud ERP — Fixed Assets (FA) Module
+# Carmen Blue — Fixed Assets (FA) Module
 
 **Module Code:** FA  
 **Version:** 1.0  

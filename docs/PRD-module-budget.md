@@ -1,4 +1,4 @@
-# Carmen Cloud ERP — Budget Control Module
+# Carmen Blue — Budget Control Module
 
 **Module Code:** BC  
 **Version:** 1.0  
