@@ -37,8 +37,8 @@ Carmen Blue
 
 | # | Module | Code | Status | PRD |
 |---|--------|------|--------|-----|
-| 1 | General Ledger | GL | **Implemented** — `micro-business/src/gl` | [GL JV Fast Entry FRD](../Accounting-docs/GL/Journal%20Voucher/carmen_cloud_erp_functional_requirement_document_frd.md) |
-| 2 | Accounts Payable | AP | **Implemented** — `micro-business/src/ap` (backend-v2 PR #671) | [AP Module FRD v4.5.06](../Accounting-docs/AP/Invoice/carmen_cloud_erp_ap_module_functional_requirement_document_frd.md) |
+| 1 | General Ledger | GL | **Implemented** — `micro-business/src/gl` | [GL JV Fast Entry FRD](https://drive.google.com/drive/folders/1chka5jKpy4CjOjShw6jT-gEbrhjXzRrh?usp=drive_link) |
+| 2 | Accounts Payable | AP | **Implemented** — `micro-business/src/ap` (backend-v2 PR #671) | [AP Module FRD v4.5.06](https://drive.google.com/drive/folders/1IGBZErJrn1uRtbeek4Mfi7ht-hkjaVHE?usp=drive_link) |
 | 3 | Accounts Receivable | AR | **Customer + Invoice/DN/CN** — customer master and ARIV/ARDN/ARCN (GL post, tax invoice at post, CN netting) in `micro-business` (backend-v2 PR #704); ARDP, receipts and PMS folio still schema-only | [PRD-module-ar.md](docs/PRD-module-ar.md) · [schema spec](docs/superpowers/specs/2026-09-30-accounting-ar-schema-design.md) · [service spec](docs/superpowers/specs/2026-10-01-accounting-ar-invoice-service-design.md) |
 | 4 | Cash & Bank Management | CB | **New** | [PRD-module-cash-bank.md](docs/PRD-module-cash-bank.md) |
 | 5 | Fixed Assets | FA | **New** | [PRD-module-fa.md](docs/PRD-module-fa.md) |
@@ -109,10 +109,6 @@ carmen-accounting-concept/
 │   └── superpowers/
 │       ├── specs/2026-09-23-accounting-foundation-ap-design.md  ← Implemented design: foundation + AP
 │       └── plans/2026-09-23-accounting-foundation-ap.md         ← Implementation plan (17 tasks)
-├── Accounting-docs/                       ← New Concept FRDs & Mockups (AP, GL, Master Data)
-│   ├── AP/                                ← AP Invoice FRD + Mockups
-│   ├── GL/                                ← GL JV FRD + Mockups
-│   └── Master Data/                       ← COA, Cost Center, WHT, etc.
 ├── carmen-4-doc/                          ← Old Concept Documentation (Carmen 4 architecture, db, workflows)
 └── developer-carmensoftware/              ← Old / Legacy System codebase (Carmen4, carmen.web, Carmen.Report)
 ```
@@ -122,7 +118,7 @@ carmen-accounting-concept/
 | Repository | Description |
 |-----------|-------------|
 | `carmen-turborepo-backend-v2` | **Main API Application** (NestJS 11 Gateway & Microservices Monorepo) |
-| `Accounting-docs` | New Concept FRDs & UI Mockups (AP, GL, Master Data) |
+| [`Accounting-docs` (Google Drive)](https://drive.google.com/drive/folders/1nSKSvjF37mh8EPJTOA3AionmgnsyuczU?usp=drive_link) | New Concept FRDs & UI Mockups — [AP](https://drive.google.com/drive/folders/1XLvJnuLl5n1TgQL_AHNW4usPVWVGa1Bm?usp=drive_link) · [AR](https://drive.google.com/drive/folders/1k2maaVXJMMImS3HrRrQ1FpRp1nyHjkQ8?usp=drive_link) · [GL](https://drive.google.com/drive/folders/1T-H3Y1vFfz7GHTLl7v2e4NiAhK8SWDkR?usp=drive_link) · [Master Data](https://drive.google.com/drive/folders/1uHEqPJEkLXHLFBq9tO7CFS1qjMLC0sqT?usp=drive_link) |
 | `carmen-inventory-frontend-react` | Main ERP Frontend (React 19) |
 | `carmen-platform` | Platform Admin (Cluster/BU/User management) |
 | `carmen` | micro-business (Procurement & Inventory domain) |

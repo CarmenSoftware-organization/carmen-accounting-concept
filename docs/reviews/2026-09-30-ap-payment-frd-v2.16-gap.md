@@ -1,6 +1,6 @@
 # Gap: AP Payment FRD v2.16 เทียบกับ implementation ใน micro-business
 
-**เอกสารที่ review:** `Accounting-docs/AP/Payment/functional_requirement_document_carmen_cloud_erp_ap_payment_module_v2_16.md` (หัวเอกสารเขียน FRD v1.0, module v2.16, Status "Approved for Implementation")
+**เอกสารที่ review:** [Drive › AP › Payment](https://drive.google.com/drive/folders/1no7S8t7idX_melQ8ZPDdHcUdKO3-nRx5?usp=drive_link) — `functional_requirement_document_carmen_cloud_erp_ap_payment_module_v2_16.md` (หัวเอกสารเขียน FRD v1.0, module v2.16, Status "Approved for Implementation")
 **วันที่ review:** 2026-09-30
 **ผู้รับ:** ทีม dev (กลุ่ม A) และ BA (กลุ่ม B, C)
 **baseline ที่ใช้เทียบ:**
