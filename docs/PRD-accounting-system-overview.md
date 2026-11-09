@@ -471,6 +471,11 @@ The following master data entities are **prerequisites** for the Accounting Syst
 | AP Payment FRD | [Drive › AP › Payment](https://drive.google.com/drive/folders/1no7S8t7idX_melQ8ZPDdHcUdKO3-nRx5?usp=drive_link) | v2.16 (New Concept FRD) — gap review: [reviews/2026-09-30-ap-payment-frd-v2.16-gap.md](./reviews/2026-09-30-ap-payment-frd-v2.16-gap.md) |
 | AP Payment Mockup | [Drive › AP › Payment](https://drive.google.com/drive/folders/1no7S8t7idX_melQ8ZPDdHcUdKO3-nRx5?usp=drive_link) | v2.16 (New Concept UI) |
 | AP Dashboard Mockup | [Drive › AP › Dashboard](https://drive.google.com/drive/folders/1HDmsDxQOt_1rjqFy-pehSiUiSVLWjWBF?usp=drive_link) | v4.4.4 (New Concept UI) |
+| AR Invoice FRD + Mockup | [Drive › AR › Invoice](https://drive.google.com/drive/folders/1JThK7t-njC0L5xXU5HArW8wm5fbhV2t-?usp=drive_link) | FRD v1.07 / Mockup V1.07 (New Concept) — review: [reviews/2026-09-28-ar-frd-v1.07-review.md](./reviews/2026-09-28-ar-frd-v1.07-review.md) |
+| AR Receipt & Tax Invoice FRD + Mockup | [Drive › AR › Receipt](https://drive.google.com/drive/folders/1C03zIg5uKwk2vJoNKSZB9hRUHK-EbAfb?usp=drive_link) | FRD v1.0 / Mockup v1.9 (New Concept, 2026-11-08) — not yet reviewed |
+| AR Profile & Contract FRD + Mockup | [Drive › AR › AR Profile](https://drive.google.com/drive/folders/12T6wv6QN_j4eYMA1jfCgK6Lbw-ccoglH?usp=drive_link) | FRD v1.2 / Mockup V1.2 (New Concept, 2026-11-08) — not yet reviewed |
+| AR Dashboard FRD + Mockup | [Drive › AR › AR Dashboard](https://drive.google.com/drive/folders/1OD69XW53W_eXH5K09VYh6XGmNnWwsAta?usp=drive_link) | FRD v1.1 / Mockup v1.1 (New Concept, 2026-11-08) — not yet reviewed |
+| AR Folio Management FRD + Mockup | [Drive › AR › Folio](https://drive.google.com/drive/folders/1vpk85hjZFTD0MbYmXK-t9PhsZmyIq8k4?usp=drive_link) | FRD v2.0 / Mockup v2.0 (New Concept, 2026-11-08) — not yet reviewed |
 | GL JV Fast Entry FRD | [Drive › GL › Journal Voucher](https://drive.google.com/drive/folders/1chka5jKpy4CjOjShw6jT-gEbrhjXzRrh?usp=drive_link) | V2.14 (New Concept FRD) |
 | GL Module Sitemap Mockup | [Drive › GL](https://drive.google.com/drive/folders/1T-H3Y1vFfz7GHTLl7v2e4NiAhK8SWDkR?usp=drive_link) | New Concept UI |
 | COA Master FRD | [Drive › Master Data › COA](https://drive.google.com/drive/folders/111R8GZsqSPlDKGZDBZpiYYvWJFNv0EYD?usp=drive_link) | v1.2 (New Concept FRD) |
