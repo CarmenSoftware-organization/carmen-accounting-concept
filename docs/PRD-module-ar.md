@@ -4,7 +4,7 @@
 **Version:** 1.1  
 **Last Updated:** 2026-09-28  
 **Parent Document:** [PRD-accounting-system-overview.md](./PRD-accounting-system-overview.md)  
-**Source FRD:** `Accounting-docs/AR/Invoice/carmen_cloud_erp_ar_module_functional_requirement_document_frd.md` (FRD v1.07, 2026-09-27) + mockup `Carmen - AR - Invoice - Mockup V1.07.html`  
+**Source FRD:** [Drive › AR › Invoice](https://drive.google.com/drive/folders/1JThK7t-njC0L5xXU5HArW8wm5fbhV2t-?usp=drive_link) — `carmen_cloud_erp_ar_module_functional_requirement_document_frd.md` (FRD v1.07, 2026-09-27) + mockup `Carmen - AR - Invoice - Mockup V1.07.html`  
 **FRD Review:** [reviews/2026-09-28-ar-frd-v1.07-review.md](./reviews/2026-09-28-ar-frd-v1.07-review.md)  
 **Standard Compliance:** USALI 12th Edition, TFRS, Thai Revenue Department VAT & WHT Regulations  
 

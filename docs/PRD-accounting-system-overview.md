@@ -26,8 +26,8 @@ The Accounting System comprises **10 functional modules**:
 
 | # | Module | Status | Document Reference |
 |---|--------|--------|-------------------|
-| 1 | General Ledger (GL) | **Implemented** (`micro-business/src/gl`) | [GL JV Fast Entry FRD V2.14](../Accounting-docs/GL/Journal%20Voucher/carmen_cloud_erp_functional_requirement_document_frd.md) |
-| 2 | Accounts Payable (AP) | **Implemented** (`micro-business/src/ap`, backend-v2 PR #671) — design: [spec](./superpowers/specs/2026-09-23-accounting-foundation-ap-design.md) | [AP Module FRD v4.5.06](../Accounting-docs/AP/Invoice/carmen_cloud_erp_ap_module_functional_requirement_document_frd.md) |
+| 1 | General Ledger (GL) | **Implemented** (`micro-business/src/gl`) | [GL JV Fast Entry FRD V2.14](https://drive.google.com/drive/folders/1chka5jKpy4CjOjShw6jT-gEbrhjXzRrh?usp=drive_link) |
+| 2 | Accounts Payable (AP) | **Implemented** (`micro-business/src/ap`, backend-v2 PR #671) — design: [spec](./superpowers/specs/2026-09-23-accounting-foundation-ap-design.md) | [AP Module FRD v4.5.06](https://drive.google.com/drive/folders/1IGBZErJrn1uRtbeek4Mfi7ht-hkjaVHE?usp=drive_link) |
 | 3 | Accounts Receivable (AR) | **New** | [PRD-module-ar.md](./PRD-module-ar.md) |
 | 4 | Cash & Bank Management | **New** | [PRD-module-cash-bank.md](./PRD-module-cash-bank.md) |
 | 5 | Fixed Assets (FA) | **New** | [PRD-module-fa.md](./PRD-module-fa.md) |
@@ -462,27 +462,27 @@ The following master data entities are **prerequisites** for the Accounting Syst
 
 ## Appendix A: Documentation Index
 
-### New Concept Documentation (`Accounting-docs/`)
+### New Concept Documentation ([`Accounting-docs` on Google Drive](https://drive.google.com/drive/folders/1nSKSvjF37mh8EPJTOA3AionmgnsyuczU?usp=drive_link))
 
 | Document | Location | Version / Note |
 |----------|----------|----------------|
 | System Relations PRD | `../PRD-SYSTEM-RELATIONS.md` | 2026-08-06 |
-| AP Invoice FRD | `../Accounting-docs/AP/Invoice/` | v4.5.06 (New Concept FRD) |
-| AP Payment FRD | `../Accounting-docs/AP/Payment/` | v2.16 (New Concept FRD) — gap review: [reviews/2026-09-30-ap-payment-frd-v2.16-gap.md](./reviews/2026-09-30-ap-payment-frd-v2.16-gap.md) |
-| AP Payment Mockup | `../Accounting-docs/AP/Payment/` | v2.16 (New Concept UI) |
-| AP Dashboard Mockup | `../Accounting-docs/AP/Dashboard/` | v4.4.4 (New Concept UI) |
-| GL JV Fast Entry FRD | `../Accounting-docs/GL/Journal Voucher/` | V2.14 (New Concept FRD) |
-| GL Module Sitemap Mockup | `../Accounting-docs/GL/` | New Concept UI |
-| COA Master FRD | `../Accounting-docs/Master Data/COA/` | v1.2 (New Concept FRD) |
-| Cost Center FRD | `../Accounting-docs/Master Data/Cost Center (Department)/` | v1.0 (New Concept FRD) |
-| Dimension FRD | `../Accounting-docs/Master Data/Dimension/` | v1.0 (New Concept FRD) |
-| WHT Form FRD | `../Accounting-docs/Master Data/WHT Form/` | v1.0 (New Concept FRD) |
-| WHT Service Type FRD | `../Accounting-docs/Master Data/WHT Service Type/` | v1.0 (New Concept FRD) |
-| Payment Type FRD | `../Accounting-docs/Master Data/Payment Type/` | v1.0 (New Concept FRD) |
-| JV Prefix FRD | `../Accounting-docs/Master Data/JV Prefix/` | v1.1 (New Concept FRD) |
-| Account Code Grouping FRD | `../Accounting-docs/Master Data/Account Code Grouping/` | v1.2 (New Concept FRD) |
-| Asset Category FRD | `../Accounting-docs/Master Data/Asset Category/` | v1.0 (New Concept FRD) |
-| Title FRD | `../Accounting-docs/Master Data/Title/` | v1.0 (New Concept FRD) |
+| AP Invoice FRD | [Drive › AP › Invoice](https://drive.google.com/drive/folders/1IGBZErJrn1uRtbeek4Mfi7ht-hkjaVHE?usp=drive_link) | v4.5.06 (New Concept FRD) |
+| AP Payment FRD | [Drive › AP › Payment](https://drive.google.com/drive/folders/1no7S8t7idX_melQ8ZPDdHcUdKO3-nRx5?usp=drive_link) | v2.16 (New Concept FRD) — gap review: [reviews/2026-09-30-ap-payment-frd-v2.16-gap.md](./reviews/2026-09-30-ap-payment-frd-v2.16-gap.md) |
+| AP Payment Mockup | [Drive › AP › Payment](https://drive.google.com/drive/folders/1no7S8t7idX_melQ8ZPDdHcUdKO3-nRx5?usp=drive_link) | v2.16 (New Concept UI) |
+| AP Dashboard Mockup | [Drive › AP › Dashboard](https://drive.google.com/drive/folders/1HDmsDxQOt_1rjqFy-pehSiUiSVLWjWBF?usp=drive_link) | v4.4.4 (New Concept UI) |
+| GL JV Fast Entry FRD | [Drive › GL › Journal Voucher](https://drive.google.com/drive/folders/1chka5jKpy4CjOjShw6jT-gEbrhjXzRrh?usp=drive_link) | V2.14 (New Concept FRD) |
+| GL Module Sitemap Mockup | [Drive › GL](https://drive.google.com/drive/folders/1T-H3Y1vFfz7GHTLl7v2e4NiAhK8SWDkR?usp=drive_link) | New Concept UI |
+| COA Master FRD | [Drive › Master Data › COA](https://drive.google.com/drive/folders/111R8GZsqSPlDKGZDBZpiYYvWJFNv0EYD?usp=drive_link) | v1.2 (New Concept FRD) |
+| Cost Center FRD | [Drive › Master Data › Cost Center (Department)](https://drive.google.com/drive/folders/1me0_uaweIVAmJC_7k8qXedOfEauN3gBl?usp=drive_link) | v1.0 (New Concept FRD) |
+| Dimension FRD | [Drive › Master Data › Dimension](https://drive.google.com/drive/folders/1K0b452XvhpJrseLF237LPS1peJuAbZja?usp=drive_link) | v1.0 (New Concept FRD) |
+| WHT Form FRD | [Drive › Master Data › WHT Form](https://drive.google.com/drive/folders/146yO9I-ErKDoWC9xNR-AosHULVKN-_XJ?usp=drive_link) | v1.0 (New Concept FRD) |
+| WHT Service Type FRD | [Drive › Master Data › WHT Service Type](https://drive.google.com/drive/folders/1wgAdp9JWkJ6PUWNw-1ALXvzqJcPY1i5F?usp=drive_link) | v1.0 (New Concept FRD) |
+| Payment Type FRD | [Drive › Master Data › Payment Type](https://drive.google.com/drive/folders/1bemvEsPQnN3o4Kj3U-oSZYgCoqLoBX_Z?usp=drive_link) | v1.0 (New Concept FRD) |
+| JV Prefix FRD | [Drive › Master Data › JV Prefix](https://drive.google.com/drive/folders/1wD7FrnTszeeD0dDWEYovv2Qn2HKPzkdZ?usp=drive_link) | v1.1 (New Concept FRD) |
+| Account Code Grouping FRD | [Drive › Master Data › Account Code Grouping](https://drive.google.com/drive/folders/1PPuo_yMfQJk3iOEdqi9j-CKhUG5oy82V?usp=drive_link) | v1.2 (New Concept FRD) |
+| Asset Category FRD | [Drive › Master Data › Asset Category](https://drive.google.com/drive/folders/18-aSU7tcZYW19IS60Q3rZTcZKiZLgLT3?usp=drive_link) | v1.0 (New Concept FRD) |
+| Title FRD | [Drive › Master Data › Title](https://drive.google.com/drive/folders/1ZUhxcTcLjqMgJ_TKW7XUQrWHpjRdbUJR?usp=drive_link) | v1.0 (New Concept FRD) |
 
 ### Old Concept & System Reference
 

@@ -31,7 +31,7 @@ repo นี้มี PRD 9 ใบ + `prisma/schema.prisma` ที่ออกแ
 
 แหล่งอ้างอิง
 
-- AP FRD v4.5.06: `../Accounting-docs/AP/Invoice/carmen_cloud_erp_ap_module_functional_requirement_document_frd.md`
+- AP FRD v4.5.06: [Drive › AP › Invoice](https://drive.google.com/drive/folders/1IGBZErJrn1uRtbeek4Mfi7ht-hkjaVHE?usp=drive_link) — `carmen_cloud_erp_ap_module_functional_requirement_document_frd.md`
 - `../carmen-accounting-task/docs/accounting-foundation.md` §4 (reuse table), §6 (dimension), §9 (posting), §13 (open decisions)
 - `../carmen-accounting-task/docs/backlog/accounting-backlog.yaml` epic `accounts-payable`, `posting-engine`, `accounting-dimensions`, `tax-wht`
 - โค้ด GL: `apps/micro-business/src/gl/gl-jv/gl-jv.service.ts` (`createInternal`), `gl-posting/gl-posting.service.ts` (`post`, `reverse`, `voidJv`)
