@@ -6,7 +6,7 @@
 // This file is DOCUMENTATION, not a compiled schema. It has two kinds of content:
 //
 //   IMPLEMENTED  Copied verbatim from the backend-v2 tenant schema
-//                packages/prisma-shared-schema-tenant/prisma/schema.prisma @ 32c0fbd29 (main, 2026-09-30).
+//                packages/prisma-shared-schema-tenant/prisma/schema.prisma @ 1abb6a9c0 (main, 2026-11-07).
 //                Each block notes its source line range. The tenant schema is authoritative;
 //                do not edit these blocks here — change backend-v2 and re-copy.
 //
@@ -26,9 +26,11 @@
 //   tb_ap_payment_allocation                               -> tb_ap_payment_detail
 //   tb_bank, tb_bank_account (draft)                       -> tb_bank_account (implemented)
 //   tb_budget_plan, tb_budget_line                         -> tb_gl_budget, tb_gl_budget_detail
-//   tb_tax_invoice (draft)                                 -> tb_ap_invoice_tax (implemented) / tb_ar_tax_invoice (draft)
+//   tb_tax_invoice (draft)                                 -> tb_ap_invoice_tax / tb_ar_tax_invoice (both implemented)
 //
-// AR tables were implemented (schema only) on 2026-09-30; see docs/superpowers/specs/2026-09-30-accounting-ar-schema-design.md.
+// AR tables were implemented on 2026-09-30 (schema, docs/superpowers/specs/2026-09-30-accounting-ar-schema-design.md);
+// customer master + ARIV/ARDN/ARCN services followed in backend-v2 PR #704. Receipt, ARDP and PMS folio are
+// still schema-only. AR extensions proposed by the 2026-11-09 FRD reviews are in section 4 (DRAFT).
 // `// ⚠ OI-n` marks fields waiting on a BA decision (PRD-module-ar §9).
 //
 // Related: docs/PRD-accounting-system-overview.md, docs/superpowers/specs/2026-09-23-accounting-foundation-ap-design.md
@@ -44,10 +46,10 @@ datasource db {
 }
 
 // ==============================================================================
-// 1. IMPLEMENTED — enums (28) [tenant schema @ 32c0fbd29]
+// 1. IMPLEMENTED — enums (28) [tenant schema @ 1abb6a9c0]
 // ==============================================================================
 
-// source: schema.prisma:299-304
+// source: schema.prisma:301-306
 enum enum_ap_invoice_doc_type {
   invoice
   debit_note
@@ -55,17 +57,18 @@ enum enum_ap_invoice_doc_type {
   deposit
 }
 
-// source: schema.prisma:313-320
+// source: schema.prisma:318-326
 enum enum_ap_invoice_source {
   manual
   grn
+  grn_auto
   copy
   excel
   ai
   interface
 }
 
-// source: schema.prisma:306-311
+// source: schema.prisma:308-313
 enum enum_ap_invoice_status {
   draft
   in_review
@@ -73,7 +76,7 @@ enum enum_ap_invoice_status {
   void
 }
 
-// source: schema.prisma:322-329
+// source: schema.prisma:328-335
 enum enum_ap_invoice_tax_status {
   pending
   on_review
@@ -83,7 +86,7 @@ enum enum_ap_invoice_tax_status {
   void
 }
 
-// source: schema.prisma:338-344
+// source: schema.prisma:344-350
 enum enum_ap_payment_method {
   bank_transfer
   cheque
@@ -92,7 +95,7 @@ enum enum_ap_payment_method {
   promptpay
 }
 
-// source: schema.prisma:331-336
+// source: schema.prisma:337-342
 enum enum_ap_payment_status {
   draft
   in_review
@@ -100,7 +103,7 @@ enum enum_ap_payment_status {
   void
 }
 
-// source: schema.prisma:3010-3017
+// source: schema.prisma:3030-3037
 enum enum_chart_of_accounts_category {
   asset
   liability
@@ -110,13 +113,13 @@ enum enum_chart_of_accounts_category {
   statistic
 }
 
-// source: schema.prisma:2996-2999
+// source: schema.prisma:3016-3019
 enum enum_chart_of_accounts_nature {
   credit
   debit
 }
 
-// source: schema.prisma:3001-3007
+// source: schema.prisma:3021-3027
 enum enum_chart_of_accounts_type {
   header
   balance_sheet
@@ -125,7 +128,7 @@ enum enum_chart_of_accounts_type {
   summary
 }
 
-// source: schema.prisma:3048-3053
+// source: schema.prisma:3068-3073
 enum enum_chart_of_accounts_use_in {
   ap
   ar
@@ -133,27 +136,27 @@ enum enum_chart_of_accounts_use_in {
   ast
 }
 
-// source: schema.prisma:280-284
+// source: schema.prisma:282-286
 enum enum_gl_account_dimension_rule_requirement {
   mandatory
   optional
   prohibited
 }
 
-// source: schema.prisma:3038-3041
+// source: schema.prisma:3058-3061
 enum enum_gl_amortize_type {
   day_in_month
   monthly
 }
 
-// source: schema.prisma:3026-3030
+// source: schema.prisma:3046-3050
 enum enum_gl_budget_status {
   draft
   active
   superseded
 }
 
-// source: schema.prisma:4856-4868
+// source: schema.prisma:4893-4905
 enum enum_gl_jv_source {
   manual
   recurring
@@ -168,27 +171,27 @@ enum enum_gl_jv_source {
   interface
 }
 
-// source: schema.prisma:3032-3036
+// source: schema.prisma:3052-3056
 enum enum_gl_jv_template_type {
   recurring
   allocation
   amortize
 }
 
-// source: schema.prisma:3020-3024
+// source: schema.prisma:3040-3044
 enum enum_gl_period_status {
   open
   closed
   locked
 }
 
-// source: schema.prisma:3043-3046
+// source: schema.prisma:3063-3066
 enum enum_gl_side {
   debit
   credit
 }
 
-// source: schema.prisma:135-141
+// source: schema.prisma:136-142
 enum enum_jv_status {
   draft
   in_review
@@ -197,7 +200,7 @@ enum enum_jv_status {
   void
 }
 
-// source: schema.prisma:2625-2630
+// source: schema.prisma:2645-2650
 enum enum_last_action {
   submitted
   approved
@@ -205,13 +208,13 @@ enum enum_last_action {
   rejected
 }
 
-// source: schema.prisma:286-289
+// source: schema.prisma:288-291
 enum enum_tax_profile_tax_type {
   vat
   wht
 }
 
-// source: schema.prisma:291-297
+// source: schema.prisma:293-299
 enum enum_tax_profile_wht_pnd_form {
   pnd_1
   pnd_2
@@ -220,7 +223,7 @@ enum enum_tax_profile_wht_pnd_form {
   pnd_54
 }
 
-// source: schema.prisma:347-352
+// source: schema.prisma:353-358
 enum enum_ar_invoice_doc_type {
   invoice
   debit_note
@@ -228,7 +231,7 @@ enum enum_ar_invoice_doc_type {
   deposit
 }
 
-// source: schema.prisma:355-360
+// source: schema.prisma:361-366
 enum enum_ar_invoice_status {
   draft
   in_review
@@ -236,7 +239,7 @@ enum enum_ar_invoice_status {
   void
 }
 
-// source: schema.prisma:362-367
+// source: schema.prisma:368-373
 enum enum_ar_invoice_source {
   manual
   pms_folio
@@ -244,14 +247,15 @@ enum enum_ar_invoice_source {
   ai
 }
 
-// source: schema.prisma:369-373
+// source: schema.prisma:375-380
 enum enum_ar_tax_invoice_status {
   pending
   confirmed
   submitted
+  void
 }
 
-// source: schema.prisma:375-380
+// source: schema.prisma:382-387
 enum enum_ar_receipt_status {
   draft
   in_review
@@ -259,7 +263,7 @@ enum enum_ar_receipt_status {
   void
 }
 
-// source: schema.prisma:382-388
+// source: schema.prisma:389-395
 enum enum_ar_receipt_method {
   bank_transfer
   cheque
@@ -268,7 +272,7 @@ enum enum_ar_receipt_method {
   promptpay
 }
 
-// source: schema.prisma:390-395
+// source: schema.prisma:397-402
 enum enum_customer_address_type {
   contact_address
   mailing_address
@@ -277,14 +281,13 @@ enum enum_customer_address_type {
 }
 
 // ==============================================================================
-// 2. IMPLEMENTED — models (42) [tenant schema @ 32c0fbd29]
+// 2. IMPLEMENTED — models (42) [tenant schema @ 1abb6a9c0]
 // ==============================================================================
 
 // ---- Master data -------------------------------------------------------------
 
-// source: schema.prisma:675-718
+// source: schema.prisma:682-725
 model tb_currency {
-  // NOTE: 9 back-relation list fields to non-accounting tables trimmed from this extract
   doc_version    Int      @default(0) @db.Integer
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code           String   @db.VarChar(3)
@@ -313,6 +316,7 @@ model tb_currency {
   tb_gl_jv_header_tb_gl_jv_header_base_currency_idTotb_currency tb_gl_jv_header[]                     @relation("tb_gl_jv_header_base_currency_idTotb_currency")
   tb_gl_jv_header_tb_gl_jv_header_currency_idTotb_currency      tb_gl_jv_header[]                     @relation("tb_gl_jv_header_currency_idTotb_currency")
 
+  // NOTE: 9 back-relation list fields to non-accounting tables trimmed from this extract
   @@unique([code, deleted_at], map: "currency_code_u")
   @@unique([name, deleted_at], map: "currency_name_u")
   @@unique([code, name, deleted_at], map: "currency_code_name_u")
@@ -320,7 +324,7 @@ model tb_currency {
   @@index([name], map: "currency_name_idx")
 }
 
-// source: schema.prisma:3055-3094
+// source: schema.prisma:3075-3114
 model tb_chart_of_accounts {
   doc_version            Int                              @default(0) @db.Integer
   id                     String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -362,7 +366,7 @@ model tb_chart_of_accounts {
   @@index([account_group_id], map: "chartofaccounts_account_group_id_idx")
 }
 
-// source: schema.prisma:3100-3127
+// source: schema.prisma:3120-3147
 model tb_cost_center_group {
   doc_version Int      @default(0) @db.Integer
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -392,14 +396,14 @@ model tb_cost_center_group {
   @@index([name], map: "costcentergroup_name_idx")
 }
 
-// source: schema.prisma:3129-3159
+// source: schema.prisma:3149-3181
 model tb_cost_center {
   doc_version          Int      @default(0) @db.Integer
   id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code                 String   @db.VarChar
   name                 String   @db.VarChar
   description          String?  @db.VarChar
-  cost_center_group_id String   @db.Uuid
+  cost_center_group_id String?  @db.Uuid
   is_active            Boolean? @default(true)
 
   note      String? @db.VarChar
@@ -413,19 +417,20 @@ model tb_cost_center {
   deleted_at    DateTime? @db.Timestamptz(6)
   deleted_by_id String?   @db.Uuid
 
-  tb_cost_center_group   tb_cost_center_group     @relation(fields: [cost_center_group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tb_cost_center_group   tb_cost_center_group?    @relation(fields: [cost_center_group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tb_cost_center_account tb_cost_center_account[]
 
   // Partial unique index "costcenter_code_live_u" ON (code) WHERE deleted_at IS NULL
   // อยู่ใน migration.sql เท่านั้น (Prisma ประกาศ partial index ไม่ได้) — ถ้า rename ตารางนี้
   // ต้องเขียน ALTER INDEX ... RENAME TO ... ในไฟล์ migration ด้วยมือ ไม่งั้น index จะค้างชื่อเดิม
+  // NOTE: 2 back-relation list fields to non-accounting tables trimmed from this extract
   @@unique([code, deleted_at], map: "costcenter_code_u")
   @@index([code], map: "costcenter_code_idx")
   @@index([name], map: "costcenter_name_idx")
   @@index([cost_center_group_id], map: "costcenter_group_id_idx")
 }
 
-// source: schema.prisma:3161-3184
+// source: schema.prisma:3183-3206
 model tb_cost_center_account {
   doc_version          Int    @default(0) @db.Integer
   id                   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -451,7 +456,7 @@ model tb_cost_center_account {
   @@index([chart_of_accounts_id], map: "costcenteraccount_chart_of_accounts_id_idx")
 }
 
-// source: schema.prisma:7069-7100
+// source: schema.prisma:7226-7257
 model tb_bank_account {
   doc_version          Int     @default(0) @db.Integer
   id                   String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -485,9 +490,8 @@ model tb_bank_account {
   @@index([code], map: "bankaccount_code_idx")
 }
 
-// source: schema.prisma:1605-1647
+// source: schema.prisma:1624-1666
 model tb_tax_profile {
-  // NOTE: 13 back-relation list fields to non-accounting tables trimmed from this extract
   doc_version Int      @default(0) @db.Integer
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name        String   @db.VarChar
@@ -514,13 +518,14 @@ model tb_tax_profile {
   tb_chart_of_accounts                tb_chart_of_accounts?                 @relation(fields: [chart_of_accounts_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tb_customer                         tb_customer[]
 
+  // NOTE: 13 back-relation list fields to non-accounting tables trimmed from this extract
   @@unique([name, deleted_at], map: "taxprofile_name_deletedat_u")
   @@index([name], map: "taxprofile_name_idx")
 }
 
 // ---- General Ledger ----------------------------------------------------------
 
-// source: schema.prisma:3252-3281
+// source: schema.prisma:3274-3303
 model tb_gl_period {
   doc_version  Int                   @default(0) @db.Integer
   id           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -552,7 +557,7 @@ model tb_gl_period {
   @@index([status], map: "glperiod_status_idx")
 }
 
-// source: schema.prisma:3189-3214
+// source: schema.prisma:3211-3236
 model tb_gl_jv_prefix {
   doc_version       Int     @default(0) @db.Integer
   id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -580,7 +585,7 @@ model tb_gl_jv_prefix {
   @@index([code], map: "gljvprefix_code_idx")
 }
 
-// source: schema.prisma:3217-3249
+// source: schema.prisma:3239-3271
 model tb_gl_account_group {
   doc_version Int                             @default(0) @db.Integer
   id          String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -615,7 +620,7 @@ model tb_gl_account_group {
   @@index([category], map: "glaccountgroup_category_idx")
 }
 
-// source: schema.prisma:4873-4956
+// source: schema.prisma:4910-4993
 model tb_gl_jv_header {
   id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   currency_id        String?  @db.Uuid
@@ -701,7 +706,7 @@ model tb_gl_jv_header {
   @@index([template_id], map: "gljvheader_template_id_idx")
 }
 
-// source: schema.prisma:4627-4677
+// source: schema.prisma:4664-4714
 model tb_gl_jv_detail {
   id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   jv_header_id String @db.Uuid
@@ -754,7 +759,7 @@ model tb_gl_jv_detail {
   @@index([jv_header_id, sequence_no], map: "gljvdetail_header_seq_idx")
 }
 
-// source: schema.prisma:4684-4701
+// source: schema.prisma:4721-4738
 model tb_gl_balance {
   id                   String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   gl_period_id         String  @db.Uuid
@@ -774,7 +779,7 @@ model tb_gl_balance {
   @@index([cost_center_id], map: "glbalance_cost_center_idx")
 }
 
-// source: schema.prisma:4707-4730
+// source: schema.prisma:4744-4767
 model tb_gl_budget {
   doc_version Int                   @default(0) @db.Integer
   id          String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -800,7 +805,7 @@ model tb_gl_budget {
   @@index([status], map: "glbudget_status_idx")
 }
 
-// source: schema.prisma:4735-4759
+// source: schema.prisma:4772-4796
 model tb_gl_budget_detail {
   doc_version          Int     @default(0) @db.Integer
   id                   String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -827,7 +832,7 @@ model tb_gl_budget_detail {
   @@index([chart_of_accounts_id], map: "glbudgetdetail_coa_idx")
 }
 
-// source: schema.prisma:4764-4805
+// source: schema.prisma:4801-4842
 model tb_gl_jv_template {
   doc_version      Int                      @default(0) @db.Integer
   id               String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -871,7 +876,7 @@ model tb_gl_jv_template {
   @@index([is_active], map: "gljvtemplate_is_active_idx")
 }
 
-// source: schema.prisma:4809-4836
+// source: schema.prisma:4846-4873
 model tb_gl_jv_template_detail {
   doc_version          Int           @default(0) @db.Integer
   id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -901,7 +906,7 @@ model tb_gl_jv_template_detail {
   @@index([template_id], map: "gljvtemplatedetail_template_id_idx")
 }
 
-// source: schema.prisma:4840-4854
+// source: schema.prisma:4877-4891
 model tb_gl_jv_template_run {
   id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   template_id     String   @db.Uuid
@@ -920,7 +925,7 @@ model tb_gl_jv_template_run {
 
 // ---- Accounting dimensions ---------------------------------------------------
 
-// source: schema.prisma:6969-6997
+// source: schema.prisma:7126-7154
 model tb_gl_dimension {
   doc_version Int     @default(0) @db.Integer
   id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -951,7 +956,7 @@ model tb_gl_dimension {
   @@index([code], map: "gldimension_code_idx")
 }
 
-// source: schema.prisma:6999-7027
+// source: schema.prisma:7156-7184
 model tb_gl_dimension_value {
   doc_version     Int       @default(0) @db.Integer
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -982,7 +987,7 @@ model tb_gl_dimension_value {
   @@index([gl_dimension_id], map: "gldimensionvalue_dimension_idx")
 }
 
-// source: schema.prisma:7029-7048
+// source: schema.prisma:7186-7205
 model tb_gl_account_dimension_rule {
   doc_version          Int                                        @default(0) @db.Integer
   id                   String                                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1004,7 +1009,7 @@ model tb_gl_account_dimension_rule {
   @@index([chart_of_accounts_id], map: "glaccountdimensionrule_account_idx")
 }
 
-// source: schema.prisma:7050-7067
+// source: schema.prisma:7207-7224
 model tb_gl_jv_detail_dimension {
   id                    String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   gl_jv_detail_id       String @db.Uuid
@@ -1026,17 +1031,19 @@ model tb_gl_jv_detail_dimension {
 
 // ---- AP Invoice --------------------------------------------------------------
 
-// source: schema.prisma:7102-7185
+// source: schema.prisma:7259-7345
 model tb_ap_invoice {
   doc_version Int    @default(0) @db.Integer
   id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
-  doc_no      String                   @db.VarChar(30)
-  doc_type    enum_ap_invoice_doc_type
-  doc_status  enum_ap_invoice_status   @default(draft)
-  doc_source  enum_ap_invoice_source   @default(manual)
-  doc_date    DateTime                 @db.Date
-  description String?                  @db.VarChar
+  doc_no        String                   @db.VarChar(30)
+  doc_type      enum_ap_invoice_doc_type
+  doc_status    enum_ap_invoice_status   @default(draft)
+  doc_source    enum_ap_invoice_source   @default(manual)
+  /// GRN that raised this invoice by itself (doc_source = grn_auto); survives void, unlike tb_ap_invoice_detail_source / GRN ที่สร้างใบนี้เอง (grn_auto) คงอยู่หลัง void
+  source_grn_id String?                  @db.Uuid
+  doc_date      DateTime                 @db.Date
+  description   String?                  @db.VarChar
 
   vendor_id         String   @db.Uuid
   vendor_name       String   @db.VarChar
@@ -1109,10 +1116,11 @@ model tb_ap_invoice {
   @@unique([doc_no, deleted_at], map: "apinvoice_doc_no_u")
   @@index([vendor_id, doc_status], map: "apinvoice_vendor_status_idx")
   @@index([doc_date], map: "apinvoice_doc_date_idx")
+  @@index([source_grn_id], map: "apinvoice_source_grn_idx")
   @@index([gl_jv_id], map: "apinvoice_gl_jv_idx")
 }
 
-// source: schema.prisma:7187-7250
+// source: schema.prisma:7347-7410
 model tb_ap_invoice_detail {
   doc_version   Int     @default(0) @db.Integer
   id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1178,7 +1186,7 @@ model tb_ap_invoice_detail {
   @@index([ap_invoice_id], map: "apinvoicedetail_invoice_idx")
 }
 
-// source: schema.prisma:7252-7268
+// source: schema.prisma:7412-7428
 model tb_ap_invoice_detail_dimension {
   id                    String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ap_invoice_detail_id  String @db.Uuid
@@ -1197,7 +1205,7 @@ model tb_ap_invoice_detail_dimension {
   @@unique([ap_invoice_detail_id, gl_dimension_id], map: "apinvoicedetaildimension_u")
 }
 
-// source: schema.prisma:7270-7288
+// source: schema.prisma:7430-7448
 model tb_ap_invoice_detail_source {
   id                                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ap_invoice_detail_id              String  @db.Uuid
@@ -1218,7 +1226,7 @@ model tb_ap_invoice_detail_source {
   @@index([good_received_note_id], map: "apinvoicedetailsource_grn_idx")
 }
 
-// source: schema.prisma:7290-7308
+// source: schema.prisma:7450-7468
 model tb_ap_invoice_reference {
   id                           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ap_invoice_id                String                   @db.Uuid
@@ -1239,7 +1247,7 @@ model tb_ap_invoice_reference {
   @@index([ref_ap_invoice_id], map: "apinvoicereference_ref_idx")
 }
 
-// source: schema.prisma:7310-7335
+// source: schema.prisma:7470-7495
 model tb_ap_invoice_tax {
   doc_version       Int                        @default(0) @db.Integer
   id                String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1269,7 +1277,7 @@ model tb_ap_invoice_tax {
 
 // ---- AP Payment --------------------------------------------------------------
 
-// source: schema.prisma:7337-7418
+// source: schema.prisma:7497-7578
 model tb_ap_payment {
   doc_version Int    @default(0) @db.Integer
   id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1353,7 +1361,7 @@ model tb_ap_payment {
   @@index([payment_date], map: "appayment_date_idx")
 }
 
-// source: schema.prisma:7420-7441
+// source: schema.prisma:7580-7601
 model tb_ap_payment_detail {
   id                           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ap_payment_id                String                   @db.Uuid
@@ -1377,7 +1385,7 @@ model tb_ap_payment_detail {
   @@index([ap_invoice_detail_id], map: "appaymentdetail_invoice_detail_idx")
 }
 
-// source: schema.prisma:7443-7462
+// source: schema.prisma:7603-7622
 model tb_ap_payment_wht {
   id                   String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ap_payment_id        String                         @db.Uuid
@@ -1399,7 +1407,7 @@ model tb_ap_payment_wht {
   @@index([ap_payment_id], map: "appaymentwht_payment_idx")
 }
 
-// source: schema.prisma:7464-7479
+// source: schema.prisma:7624-7639
 model tb_ap_payment_expense {
   id                   String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ap_payment_id        String  @db.Uuid
@@ -1419,7 +1427,7 @@ model tb_ap_payment_expense {
 
 // ---- Accounts Receivable ---------------------------------------------------
 
-// source: schema.prisma:7481-7525
+// source: schema.prisma:7641-7685
 model tb_customer {
   doc_version Int     @default(0) @db.Integer
   id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1466,22 +1474,22 @@ model tb_customer {
   @@index([tax_no], map: "customer_tax_no_idx")
 }
 
-// source: schema.prisma:7527-7554
+// source: schema.prisma:7687-7714
 model tb_customer_address {
-  doc_version   Int                         @default(0) @db.Integer
-  id            String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  customer_id   String                      @db.Uuid
+  doc_version   Int                        @default(0) @db.Integer
+  id            String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id   String                     @db.Uuid
   address_type  enum_customer_address_type
-  address_line1 String?                     @db.VarChar // บ้านเลขที่ / ถนน / ซอย
-  address_line2 String?                     @db.VarChar // อาคาร / ชั้น
-  sub_district  String?                     @db.VarChar // ตำบล / แขวง
-  district      String?                     @db.VarChar // อำเภอ / เขต
-  city          String?                     @db.VarChar
-  province      String?                     @db.VarChar
-  postal_code   String?                     @db.VarChar
-  country       String?                     @db.VarChar
-  is_active     Boolean?                    @default(true)
-  info          Json?                       @default("{}") @db.JsonB
+  address_line1 String?                    @db.VarChar // บ้านเลขที่ / ถนน / ซอย
+  address_line2 String?                    @db.VarChar // อาคาร / ชั้น
+  sub_district  String?                    @db.VarChar // ตำบล / แขวง
+  district      String?                    @db.VarChar // อำเภอ / เขต
+  city          String?                    @db.VarChar
+  province      String?                    @db.VarChar
+  postal_code   String?                    @db.VarChar
+  country       String?                    @db.VarChar
+  is_active     Boolean?                   @default(true)
+  info          Json?                      @default("{}") @db.JsonB
 
   created_at    DateTime? @default(now()) @db.Timestamptz(6)
   created_by_id String?   @db.Uuid
@@ -1496,7 +1504,7 @@ model tb_customer_address {
   @@index([customer_id], map: "customeraddress_customer_idx")
 }
 
-// source: schema.prisma:7557-7648
+// source: schema.prisma:7717-7808
 model tb_ar_invoice {
   doc_version Int    @default(0) @db.Integer
   id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1590,7 +1598,7 @@ model tb_ar_invoice {
   @@index([gl_jv_id], map: "arinvoice_gl_jv_idx")
 }
 
-// source: schema.prisma:7651-7733
+// source: schema.prisma:7811-7893
 model tb_ar_invoice_detail {
   doc_version   Int     @default(0) @db.Integer
   id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1608,10 +1616,10 @@ model tb_ar_invoice_detail {
   folio_date     DateTime? @db.Date
   folio_amount   Decimal?  @db.Decimal(20, 5) // folio balance at import; settle = net_amount (0 < settle ≤ folio_amount, ERR_AR_002)
 
-  unit_id      String? @db.Uuid
-  unit_name    String? @db.VarChar
-  quantity     Decimal @default(1) @db.Decimal(20, 5)
-  unit_price   Decimal @default(0) @db.Decimal(20, 5)
+  unit_id    String? @db.Uuid
+  unit_name  String? @db.VarChar
+  quantity   Decimal @default(1) @db.Decimal(20, 5)
+  unit_price Decimal @default(0) @db.Decimal(20, 5)
 
   // Section 1 — discount
   sub_total_amount     Decimal @default(0) @db.Decimal(20, 5)
@@ -1675,7 +1683,7 @@ model tb_ar_invoice_detail {
   @@index([folio_no], map: "arinvoicedetail_folio_idx")
 }
 
-// source: schema.prisma:7736-7752
+// source: schema.prisma:7896-7912
 model tb_ar_invoice_detail_dimension {
   id                    String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ar_invoice_detail_id  String @db.Uuid
@@ -1694,7 +1702,7 @@ model tb_ar_invoice_detail_dimension {
   @@unique([ar_invoice_detail_id, gl_dimension_id], map: "arinvoicedetaildimension_u")
 }
 
-// source: schema.prisma:7754-7775
+// source: schema.prisma:7914-7935
 model tb_ar_invoice_reference {
   id                           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ar_invoice_id                String                   @db.Uuid
@@ -1718,18 +1726,18 @@ model tb_ar_invoice_reference {
   @@index([ref_ar_invoice_id], map: "arinvoicereference_ref_idx")
 }
 
-// source: schema.prisma:7778-7816
+// source: schema.prisma:7938-7976
 model tb_ar_tax_invoice {
-  doc_version      Int                         @default(0) @db.Integer
-  id               String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ar_invoice_id    String?                     @unique(map: "artaxinvoice_invoice_u") @db.Uuid
-  ar_receipt_id    String?                     @unique(map: "artaxinvoice_receipt_u") @db.Uuid
-  tax_prefix       String                      @db.VarChar(10) // TXIV / TXDN / TXCN / TXDP / TXRC
-  tax_invoice_no   String                      @db.VarChar(30) // generated on submit, never on save draft (ERR_AR_006 on collision)
-  tax_invoice_date DateTime                    @db.Date
-  filing_month     Int?                        @db.Integer // FRD tax_period MM/YYYY
-  filing_year      Int?                        @db.Integer
-  tax_status       enum_ar_tax_invoice_status  @default(pending)
+  doc_version      Int                        @default(0) @db.Integer
+  id               String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_invoice_id    String?                    @unique(map: "artaxinvoice_invoice_u") @db.Uuid
+  ar_receipt_id    String?                    @unique(map: "artaxinvoice_receipt_u") @db.Uuid
+  tax_prefix       String                     @db.VarChar(10) // TXIV / TXDN / TXCN / TXDP / TXRC
+  tax_invoice_no   String                     @db.VarChar(30) // generated on submit, never on save draft (ERR_AR_006 on collision)
+  tax_invoice_date DateTime                   @db.Date
+  filing_month     Int?                       @db.Integer // FRD tax_period MM/YYYY
+  filing_year      Int?                       @db.Integer
+  tax_status       enum_ar_tax_invoice_status @default(pending)
 
   customer_registered_name String  @db.VarChar
   customer_tax_no          String? @db.VarChar(13)
@@ -1759,7 +1767,7 @@ model tb_ar_tax_invoice {
   @@index([filing_year, filing_month], map: "artaxinvoice_period_idx")
 }
 
-// source: schema.prisma:7819-7901
+// source: schema.prisma:7979-8061
 model tb_ar_receipt {
   doc_version Int    @default(0) @db.Integer
   id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1776,12 +1784,12 @@ model tb_ar_receipt {
   customer_name String  @db.VarChar
   payer_name    String? @db.VarChar // name on cheque / transfer when not the customer
 
-  bank_account_id   String                  @db.Uuid
-  bank_account_code String                  @db.VarChar(20)
-  bank_account_name String                  @db.VarChar
-  receipt_method    enum_ar_receipt_method  @default(bank_transfer)
-  cheque_no         String?                 @db.VarChar(50)
-  cheque_date       DateTime?               @db.Date
+  bank_account_id   String                 @db.Uuid
+  bank_account_code String                 @db.VarChar(20)
+  bank_account_name String                 @db.VarChar
+  receipt_method    enum_ar_receipt_method @default(bank_transfer)
+  cheque_no         String?                @db.VarChar(50)
+  cheque_date       DateTime?              @db.Date
 
   is_tax_invoice Boolean @default(false) // TXRC issued at receipt (services) → tb_ar_tax_invoice
 
@@ -1833,18 +1841,18 @@ model tb_ar_receipt {
   deleted_at    DateTime? @db.Timestamptz(6)
   deleted_by_id String?   @db.Uuid
 
-  tb_customer                tb_customer                  @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tb_bank_account            tb_bank_account              @relation(fields: [bank_account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tb_ar_receipt_detail       tb_ar_receipt_detail[]
-  tb_ar_receipt_wht          tb_ar_receipt_wht[]
-  tb_ar_tax_invoice          tb_ar_tax_invoice?
+  tb_customer          tb_customer            @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tb_bank_account      tb_bank_account        @relation(fields: [bank_account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tb_ar_receipt_detail tb_ar_receipt_detail[]
+  tb_ar_receipt_wht    tb_ar_receipt_wht[]
+  tb_ar_tax_invoice    tb_ar_tax_invoice?
 
   @@unique([doc_no, deleted_at], map: "arreceipt_doc_no_u")
   @@index([customer_id, doc_status], map: "arreceipt_customer_status_idx")
   @@index([receipt_date], map: "arreceipt_date_idx")
 }
 
-// source: schema.prisma:7904-7925
+// source: schema.prisma:8064-8085
 model tb_ar_receipt_detail {
   id                           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ar_receipt_id                String                   @db.Uuid
@@ -1868,7 +1876,7 @@ model tb_ar_receipt_detail {
   @@index([ar_invoice_detail_id], map: "arreceiptdetail_invoice_detail_idx")
 }
 
-// source: schema.prisma:7928-7949
+// source: schema.prisma:8088-8109
 model tb_ar_receipt_wht {
   id                   String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ar_receipt_id        String                         @db.Uuid
@@ -1893,7 +1901,7 @@ model tb_ar_receipt_wht {
 }
 
 // ==============================================================================
-// 3. DRAFT — enums (7) [concept only]
+// 3. DRAFT — enums (8) [concept only]
 // ==============================================================================
 
 enum enum_asset_disposal_type {
@@ -1951,27 +1959,95 @@ enum enum_wht_form_type {
   pnd_54 // จ่ายไปต่างประเทศ
 }
 
-// AR document types — mirrors enum_ap_invoice_doc_type (ARIV / ARDN / ARCN / ARDP)
-// ⚠ OI-3: FRD lists Draft / Submitted / Approved / Posted / Void; this follows the AP lifecycle
-// (workflow stages live in workflow_* columns, GL posting happens once at `posted`)
-// ⚠ OI-5: FRD §3.1 enum has Manual / PMS Folio / Copy; §4 also stamps AI
+// AR Profile FRD v1.2 (review 2026-11-09 B4) — for proposed tb_customer.tax_entity_type
+enum enum_customer_tax_entity_type {
+  corporate // นิติบุคคล
+  individual // บุคคลธรรมดา (⚠ Profile Q11: PDPA masking of tax_no)
+}
+
 // ==============================================================================
-// 4. DRAFT — models (16) [concept only, not implemented]
+// 4. DRAFT — models (18) [concept only, not implemented]
 // ==============================================================================
 
-// ⚠ OI-7: no customer master exists in backend-v2 yet. Mirrors tb_vendor / tb_vendor_address.
-// ARIV / ARDN / ARCN / ARDP in one table (FRD ar_invoice_header) — mirrors tb_ap_invoice.
-// ARRC (receipt) is NOT here: see tb_ar_receipt (⚠ OI-4).
-// Line items (FRD ar_invoice_detail) — mirrors tb_ap_invoice_detail; cr = revenue, dr = AR.
-// 6 analysis dimensions per line (FRD dim_market … dim_channel) — data-driven like AP
-// Tab 3 Doc Reference (FRD ar_document_reference): deposits (and per FRD §5.3 CN/DN ⚠ OI-5)
-// applied to an ARIV. Realized FX per PRD §4.2/4.3 (⚠ OI-1 sign, ⚠ OI-2 TFRIC 22).
-// Output tax register (FRD ar_tax_invoice) — mirrors tb_ap_invoice_tax. One row per issuing
-// document: an AR document (TXIV/TXDN/TXCN/TXDP) or a receipt (TXRC ⚠ OI-5); exactly one FK set.
-// ⚠ OI-4: Receipt (ARRC) as its own document — mirrors tb_ap_payment. Created from an invoice's
-// "Get Receipt" or standalone; allocates to posted AR document lines.
-// Line-level allocation — mirrors tb_ap_payment_detail (credit_note lines carry a negative amount)
-// WHT certificate (50 ทวิ) received from the customer — mirrors tb_ap_payment_wht; posts Dr WHT receivable
+// ---- AR extensions (DRAFT) — from FRD reviews 2026-11-09 ---------------------
+// Sources: docs/reviews/2026-11-09-ar-{receipt-frd-v1.0,profile-contract-frd-v1.2,
+// dashboard-frd-v1.1,folio-frd-v2.0}-review.md. Only items with no open BA question are
+// modelled; the rest are listed below as ⚠ PENDING.
+//
+// Proposed column additions to IMPLEMENTED tables — apply in backend-v2, then re-copy:
+//   tb_customer.tax_entity_type      enum_customer_tax_entity_type?   (Profile B4)
+//   tb_customer.wht_tax_profile_id   String? @db.Uuid  // fk -> tb_tax_profile.id (Profile B8)
+//   tb_customer_address.contact_name String? @db.VarChar              (Profile B6)
+//   tb_customer_address.email        String? @db.VarChar              (Profile B6)
+//   tb_ar_tax_invoice.ref_tax_invoice_no String? @db.VarChar(30)      (Receipt T5; + optional ref_tax_invoice_id)
+//   tb_ar_receipt.void_date          DateTime? @db.Date               (Receipt A14, optional)
+// Proposed GL setting keys — JSON in tb_application_config (key 'gl_setting', interface GlSetting
+// in micro-business gl-posting.service.ts), so no schema change; values are tb_chart_of_accounts ids:
+//   wht_receivable_account_id, bank_charge_account_id (default for tb_ar_receipt_charge)   (Receipt B2)
+// Dashboard FRD v1.1 needs no tables: KPIs are queries over tb_ar_* (FRD §5 DDL rejected).
+//
+// ⚠ PENDING (not modelled until the BA / accounting consultant answers):
+//   tb_ar_receipt_method           multi-bank / multi-method per receipt — Receipt Q3 (decide with AP A1)
+//   GL setting key output_vat_pending_account_id — Receipt Q1/Q2 (TXRC trigger, VAT at receipt)
+//   tb_ar_tax_invoice is_etax / etax_status   — Receipt Q8 (e-Tax provider & phase)
+//   tb_customer.credit_check_mode (none/warn/block), credit-limit currency & exposure — Profile Q1–Q5
+//   tb_customer.default_payment_type          — Profile Q8 (payment type master)
+//   tb_ar_contract / tb_ar_contract_detail, tb_ar_invoice.contract_id — Profile Q9/Q10 (contract scope)
+//   tb_ar_folio / tb_ar_folio_invoice / enum_ar_folio_status — Folio Q1, Q2, Q7 (Night Audit JV format,
+//     VAT recognition point, who reverses the JV on void) + a PMS interface. Keep the is_pms_folio block
+//     in checkArHeader until posting has a folio guard (Folio review R-1: double-posted revenue).
+
+// Other Charges on a receipt (bank fee, rounding, small over/under-payment) — mirrors tb_ap_payment_expense.
+// amount is signed (+ charge / − credit). ⚠ Receipt Q6: limits and approval for negative amounts.
+model tb_ar_receipt_charge {
+  id                   String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ar_receipt_id        String  @db.Uuid // fk -> tb_ar_receipt.id (cascade with the receipt)
+  chart_of_accounts_id String  @db.Uuid // fk -> tb_chart_of_accounts.id; default GL setting bank_charge_account_id
+  cost_center_id       String? @db.Uuid // fk -> tb_cost_center.id
+  description          String? @db.VarChar
+  amount               Decimal @default(0) @db.Decimal(20, 5)
+  base_amount          Decimal @default(0) @db.Decimal(20, 5)
+  dimension            Json?   @default("[]") @db.JsonB
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+
+  @@index([ar_receipt_id], map: "arreceiptcharge_receipt_idx")
+}
+
+// Customer contacts (AR Profile FRD v1.2, review B5) — mirrors tb_vendor_contact, plus title/position/fax.
+model tb_customer_contact {
+  doc_version Int     @default(0) @db.Integer
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id String? @db.Uuid // fk -> tb_customer.id
+
+  name     String  @db.VarChar
+  title    String? @db.VarChar
+  position String? @db.VarChar
+  email    String? @db.VarChar
+  phone    String? @db.VarChar
+  fax      String? @db.VarChar
+
+  is_primary Boolean? @default(false)
+
+  is_active Boolean? @default(true)
+
+  description String? @db.VarChar
+  note        String? @db.VarChar
+  info        Json?   @default("{}") @db.JsonB
+  dimension   Json?   @default("[]") @db.JsonB
+
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by_id String?   @db.Uuid
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_by_id String?   @db.Uuid
+  deleted_at    DateTime? @db.Timestamptz(6)
+  deleted_by_id String?   @db.Uuid
+
+  @@unique([customer_id, name, deleted_at], map: "customercontact_customer_name_deletedat_u")
+  @@index([customer_id], map: "customercontact_customer_idx")
+}
+
 // ---- Cash & Bank (DRAFT) -----------------------------------------------------
 
 model tb_petty_cash_fund {

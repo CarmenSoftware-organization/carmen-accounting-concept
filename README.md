@@ -87,7 +87,7 @@ The **authoritative schema** is the tenant Prisma schema in `carmen-turborepo-ba
 - **Master data**: `tb_bank_account`; `tb_tax_profile` gains `tax_type`/WHT fields; `tb_vendor` gains AP defaults
 - Migration: `20260923060040_accounting_foundation_ap`
 
-[prisma/schema.prisma](prisma/schema.prisma) in this repo is a **hybrid copy** (updated 2026-09-30): sections 1–2 are the 28 enums and 42 accounting models copied verbatim from the tenant schema at backend-v2 `32c0fbd29` (each block cites its source line range); sections 3–4 are the **concept drafts** for modules not yet built (Cash & Bank, FA, Tax, Inter-company). Draft models reference implemented tables by `*_id` + comment, not `@relation`. Draft GL/AP/dimension/period/bank/budget tables that the implementation superseded were removed (mapping in the file header). The file is documentation and is not compiled.
+[prisma/schema.prisma](prisma/schema.prisma) in this repo is a **hybrid copy** (updated 2026-11-09): sections 1–2 are the 28 enums and 42 accounting models copied verbatim from the tenant schema at backend-v2 `1abb6a9c0` (each block cites its source line range); sections 3–4 are the **concept drafts** for modules not yet built (Cash & Bank, FA, Tax, Inter-company). Draft models reference implemented tables by `*_id` + comment, not `@relation`. Draft GL/AP/dimension/period/bank/budget tables that the implementation superseded were removed (mapping in the file header). The file is documentation and is not compiled.
 
 ## Documentation Structure
 
@@ -95,7 +95,7 @@ The **authoritative schema** is the tenant Prisma schema in `carmen-turborepo-ba
 carmen-accounting-concept/
 ├── README.md                              ← You are here
 ├── prisma/
-│   └── schema.prisma                      ← Implemented extract (backend-v2 @ 32c0fbd29) + drafts for unbuilt modules
+│   └── schema.prisma                      ← Implemented extract (backend-v2 @ 1abb6a9c0) + drafts for unbuilt modules
 ├── docs/
 │   ├── PRD-accounting-system-overview.md  ← Master PRD
 │   ├── PRD-module-ar.md                   ← Accounts Receivable
