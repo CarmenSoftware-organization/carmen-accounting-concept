@@ -28,7 +28,7 @@ The Accounting System comprises **10 functional modules**:
 |---|--------|--------|-------------------|
 | 1 | General Ledger (GL) | **Implemented** (`micro-business/src/gl`) | [GL JV Fast Entry FRD V2.14](https://drive.google.com/drive/folders/1chka5jKpy4CjOjShw6jT-gEbrhjXzRrh?usp=drive_link) |
 | 2 | Accounts Payable (AP) | **Implemented** (`micro-business/src/ap`, backend-v2 PR #671) — design: [spec](./superpowers/specs/2026-09-23-accounting-foundation-ap-design.md) | [AP Module FRD v4.5.06](https://drive.google.com/drive/folders/1IGBZErJrn1uRtbeek4Mfi7ht-hkjaVHE?usp=drive_link) |
-| 3 | Accounts Receivable (AR) | **New** | [PRD-module-ar.md](./PRD-module-ar.md) |
+| 3 | Accounts Receivable (AR) | **Customer + Invoice/DN/CN implemented** (`micro-business/src/ar`, backend-v2 PR #704); Receipt, ARDP, Folio schema-only — FRD reviews 2026-11-09: [Receipt](./reviews/2026-11-09-ar-receipt-frd-v1.0-review.md) · [Profile](./reviews/2026-11-09-ar-profile-contract-frd-v1.2-review.md) · [Dashboard](./reviews/2026-11-09-ar-dashboard-frd-v1.1-review.md) · [Folio](./reviews/2026-11-09-ar-folio-frd-v2.0-review.md) | [PRD-module-ar.md](./PRD-module-ar.md) |
 | 4 | Cash & Bank Management | **New** | [PRD-module-cash-bank.md](./PRD-module-cash-bank.md) |
 | 5 | Fixed Assets (FA) | **New** | [PRD-module-fa.md](./PRD-module-fa.md) |
 | 6 | Budget Control | **New** | [PRD-module-budget.md](./PRD-module-budget.md) |
